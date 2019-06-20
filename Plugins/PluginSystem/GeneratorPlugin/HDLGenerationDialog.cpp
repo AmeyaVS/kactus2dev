@@ -12,6 +12,8 @@
 #include "HDLGenerationDialog.h"
 #include "GenerationControl.h"
 
+#include <Plugins/PluginSystem/GeneratorPlugin/GenerationOutput.h>
+
 #include <common/KactusColors.h>
 #include <QDialogButtonBox>
 #include <QPushButton>
@@ -177,7 +179,7 @@ void HDLGenerationDialog::onErrorMessage(QString const& message)
 //-----------------------------------------------------------------------------
 void HDLGenerationDialog::onSelectedFileChanged(QSharedPointer<GenerationOutput> newSelection)
 {
-    previewer_->setPlainText(newSelection->fileContent_);
+    previewer_->setPlainText(newSelection->getFileContent());
 
     int higlightStart;
     int highlightEnd;

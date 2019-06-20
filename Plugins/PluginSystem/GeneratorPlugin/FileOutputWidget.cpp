@@ -11,6 +11,8 @@
 
 #include "FileOutputWidget.h"
 
+#include <Plugins/PluginSystem/GeneratorPlugin/GenerationOutput.h>
+
 #include <common/KactusColors.h>
 
 #include <QFileDialog>
@@ -133,7 +135,7 @@ void FileOutputWidget::onOutputFilesChanged()
     foreach(QSharedPointer<GenerationOutput> output, *model_->getOutputs())
     {
         // Insert VLNV string to the row.
-        QString vlnv = output->vlnv_;
+        QString vlnv = output->getVLNV();
         QTableWidgetItem* vlnvItem = new QTableWidgetItem(vlnv);
         vlnvItem->setToolTip(vlnv);
         fileTable_->setItem(row, COLUMN_VLNV, vlnvItem);
@@ -143,8 +145,8 @@ void FileOutputWidget::onOutputFilesChanged()
         fileTable_->setItem(row, COLUMN_EXISTS, fileExistsItem);
 
         // Insert filename to the row.
-        QTableWidgetItem* fileNameItem = new QTableWidgetItem(output->fileName_);
-        fileNameItem->setToolTip(output->fileName_);
+        QTableWidgetItem* fileNameItem = new QTableWidgetItem(output->getFileName());
+        fileNameItem->setToolTip(output->getFileName());
         fileTable_->setItem(row, COLUMN_FILENAME, fileNameItem);
 
         // Disable editing.

@@ -15,6 +15,8 @@
 #include <IPXACTmodels/Component/ComponentInstantiation.h>
 #include <IPXACTmodels/Component/FileSet.h>
 
+#include <Plugins/PluginSystem/GeneratorPlugin/GenerationOutput.h>
+
 #include <QDir>
 
 //-----------------------------------------------------------------------------
@@ -56,12 +58,13 @@ bool OutputControl::validSelections(QString &warning)
                 continue;
             }
 
-            QString name2compare = outputs_->at(j)->fileName_;
+            QString name2compare = outputs_->at(j)->getFileName();
 
             // Is the same -> fail.
-            if (file->fileName_ == name2compare)
+            if (file->getFileName() == name2compare)
             {
-                warning = QLatin1String("<b>File name</b> ") + file->fileName_ + QLatin1String(" <b>is listed more than once.</b>");
+                warning = QLatin1String("<b>File name</b> ") + file->getFileName() +
+                    QLatin1String(" <b>is listed more than once.</b>");
                 return false;
             }
         }
@@ -106,12 +109,12 @@ QSharedPointer<GenerationOutput> OutputControl::changeFileName(int index, QStrin
 
     QSharedPointer<GenerationOutput> selection = outputs_->at(index);
 
-    if (selection->fileName_ == newName)
+    if (selection->getFileName() == newName)
     {
         return QSharedPointer<GenerationOutput>();
     }
 
-    selection->fileName_ = newName;
+    selection->getFileName() = newName;
     selection->write(outputPath_);
 
     return selection;

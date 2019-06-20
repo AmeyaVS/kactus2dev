@@ -46,6 +46,17 @@ public:
     virtual QList<QSharedPointer<GenerationOutput> > prepareDesign(QList<QSharedPointer<MetaDesign> >& designs) = 0;
     
     /*!
+     *  Creates writers for the register document created from the HDL component.
+     *
+     *      @param [in] outputPath  The path of the output file
+     *      @param [in] component   The selected component.
+     *
+     *      @return The created register generation writers.
+     */
+    virtual QSharedPointer<GenerationOutput> prepareRegisterDocument(QString const& outputPath,
+        QSharedPointer<MetaComponent> component) = 0;
+
+    /*!
      *  Returns the language of the factory.
      */
     virtual QString getLanguage() const = 0;

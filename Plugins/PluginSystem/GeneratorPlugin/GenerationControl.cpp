@@ -19,6 +19,8 @@
 #include <IPXACTmodels/Design/Design.h>
 #include <IPXACTmodels/designConfiguration/DesignConfiguration.h>
 
+#include <Plugins/PluginSystem/GeneratorPlugin/GenerationOutput.h>
+
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QDateTime>
@@ -104,7 +106,7 @@ bool GenerationControl::writeDocuments()
     foreach(QSharedPointer<GenerationOutput> output, *outputControl_->getOutputs())
     {
         // Form the path from the determined output path plus determined file name.
-        QString absFilePath = outputControl_->getOutputPath() + "/" + output->fileName_;
+        QString absFilePath = outputControl_->getOutputPath() + "/" + output->getFileName();
 
         // Try to open the file.
         QFile outputFile(absFilePath); 
@@ -118,7 +120,7 @@ bool GenerationControl::writeDocuments()
         // Put the content to the file and close it.
         QTextStream outputStream(&outputFile);
 
-        outputStream << output->fileContent_;
+        outputStream << output->getFileContent();
 
         outputFile.close();
 
@@ -239,8 +241,8 @@ void GenerationControl::parseDocuments()
         componentParser->formatComponent();
 
         // Form writers from parsed data.
-        QSharedPointer<GenerationOutput> output = factory_->
-            prepareComponent(outputControl_->getOutputPath(), componentParser);
+        QSharedPointer<GenerationOutput> output =
+            factory_->prepareComponent(outputControl_->getOutputPath(), componentParser);
 
         if (!output)
         {
@@ -254,6 +256,14 @@ void GenerationControl::parseDocuments()
 
         // Append to the list of proposed outputs.
         outputControl_->getOutputs()->append(output);
+
+        QSharedPointer<GenerationOutput> registerOutput =
+            factory_->prepareRegisterDocument(outputControl_->getOutputPath(), componentParser);
+        if (registerOutput)
+        {
+            registerOutput->write(outputControl_->getOutputPath());
+            outputControl_->getOutputs()->append(registerOutput);
+        }
     }
 }
 

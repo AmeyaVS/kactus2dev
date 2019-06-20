@@ -18,32 +18,7 @@
 
 #include "ViewSelection.h"
 
-struct GenerationOutput
-{
-    //! The name for the file created from the output.
-    QString fileName_;
-    //! The VLNV of the component corresponding the output.
-    QString vlnv_;
-    //! The content of the output, ie. what will be written to the file.
-    QString fileContent_;
-    
-    GenerationOutput() = default;
-
-    virtual ~GenerationOutput() = default;
-
-    /*!
-     *  Writes the content.
-     */
-	virtual void write(QString const& outputDirectory) = 0;
-    
-    /*!
-     *  Finds position for body text highlight in document, if any exists.
-     *
-	 *      @param [out] begin                  The position where the highlight begins, if successful.
-     *      @param [out] end                    The position where the highlight ends, if successful.
-     */
-    virtual void getBodyHighlight(int& begin, int& end) const = 0;
-};
+class GenerationOutput;
 
 //-----------------------------------------------------------------------------
 // Container class for file output of generation.

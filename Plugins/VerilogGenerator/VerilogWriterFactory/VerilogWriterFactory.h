@@ -39,7 +39,9 @@ public:
         MessageMediator* messages, GenerationSettings* settings,
         QString const& kactusVersion, QString const& generatorVersion);
 
-    //! The destructor.
+    /*!
+     *  The destructor.
+     */
     virtual ~VerilogWriterFactory() = default;
 
     /*!
@@ -63,6 +65,17 @@ public:
     virtual QList<QSharedPointer<GenerationOutput> > prepareDesign(QList<QSharedPointer<MetaDesign> >& designs)
         override final;
     
+    /*!
+     *  Creates writers for creating the register document from the selected component.
+     *
+     *      @param [in] outputPath  The path to the output file.
+     *      @param [in] component   The selected component.
+     *
+     *      @return The register writers.
+     */
+    virtual QSharedPointer<GenerationOutput> prepareRegisterDocument(QString const& outputPath,
+        QSharedPointer<MetaComponent> component) override final;
+
     /*!
      *  Returns the language of the factory.
      */

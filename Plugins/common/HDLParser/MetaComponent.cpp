@@ -17,11 +17,16 @@
 
 #include <IPXACTmodels/Component/RemapState.h>
 #include <IPXACTmodels/Component/RemapPort.h>
+#include <IPXACTmodels/Component/MemoryMap.h>
+#include <IPXACTmodels/Component/AddressBlock.h>
+#include <IPXACTmodels/Component/Register.h>
+#include <IPXACTmodels/Component/Field.h>
 
 #include <editors/ComponentEditor/common/ComponentParameterFinder.h>
 #include <editors/ComponentEditor/common/MultipleParameterFinder.h>
 #include <editors/ComponentEditor/common/ListParameterFinder.h>
 #include <editors/ComponentEditor/common/ExpressionFormatter.h>
+#include <editors/ComponentEditor/common/IPXactSystemVerilogParser.h>
 
 //-----------------------------------------------------------------------------
 // Function: MetaComponent::MetaComponent
@@ -36,6 +41,7 @@ MetaComponent::MetaComponent(MessageMediator* messages,
     moduleParameters_(new QList<QSharedPointer<Parameter> >()),
     metaParameters_(new QMap<QString,QSharedPointer<Parameter> >()),
     ports_(new QMap<QString,QSharedPointer<MetaPort> >()),
+    registers_(new QVector<QSharedPointer<MetaRegister> > ()),
     fileSets_(new QList<QSharedPointer<FileSet> >()),
     moduleName_(),
     activeInstantiation_(),
@@ -80,11 +86,13 @@ void MetaComponent::formatComponent()
 
     //! The formatter for expressions.
     ExpressionFormatter formatter(parameterFinder);
+    IPXactSystemVerilogParser expressionParser(parameterFinder);
 
     formatParameters(formatter);
     formatPorts(formatter);
-    parseRemapStates(formatter);
+    formatRegisters(formatter, expressionParser);
 
+    parseRemapStates(formatter);
     parseMetaParameters();
 }
 
@@ -230,6 +238,126 @@ void MetaComponent::formatPorts(ExpressionFormatter const& formatter)
 }
 
 //-----------------------------------------------------------------------------
+// Function: MetaComponent::formatRegisters()
+//-----------------------------------------------------------------------------
+void MetaComponent::formatRegisters(ExpressionFormatter const& formatter, ExpressionParser const& parser)
+{
+    registers_->clear();
+
+    for (auto const& componentMap : *component_->getMemoryMaps())
+    {
+        quint64 mapAUB = parser.parseExpression(componentMap->getAddressUnitBits()).toULongLong();
+
+        for (auto const& blockBase : *componentMap->getMemoryBlocks())
+        {
+            QSharedPointer<AddressBlock> mapBlock = blockBase.dynamicCast<AddressBlock>();
+            if (mapBlock)
+            {
+
+                for (auto registerBase : *mapBlock->getRegisterData())
+                {
+                    QSharedPointer<Register> blockRegister = registerBase.dynamicCast<Register>();
+                    if (blockRegister)
+                    {
+                        formatSingleRegister(formatter, parser, blockRegister, mapAUB);
+                    }
+                }
+            }
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Function: MetaComponent::formatSingleRegister()
+//-----------------------------------------------------------------------------
+void MetaComponent::formatSingleRegister(ExpressionFormatter const& formatter, ExpressionParser const& parser,
+    QSharedPointer<Register> blockRegister, quint64 const& mapAUB)
+{
+//     mPort->arrayBounds_.first = formatter.formatReferringExpression(cport->getArrayLeft());
+
+    QSharedPointer<MetaRegister> metaRegister(new MetaRegister());
+
+    metaRegister->name_ = blockRegister->name();
+    metaRegister->offset_ = formatter.formatReferringExpression(blockRegister->getAddressOffset());
+    metaRegister->offsetInt_ = parser.parseExpression(metaRegister->offset_).toULongLong();
+    metaRegister->size_ = formatter.formatReferringExpression(blockRegister->getSize());
+
+    quint64 registerSize = parser.parseExpression(metaRegister->size_).toULongLong();
+    quint64 aubModifiedSize = registerSize / mapAUB;
+
+    metaRegister->sizeInt_ = aubModifiedSize;
+
+    AccessTypes::Access registerAccess = blockRegister->getAccess();
+    if (registerAccess == AccessTypes::ACCESS_COUNT)
+    {
+        registerAccess = blockRegister->getAccess();
+        if (registerAccess == AccessTypes::ACCESS_COUNT)
+        {
+            registerAccess = AccessTypes::READ_WRITE;
+        }
+    }
+    
+    metaRegister->access_ = registerAccess;
+
+    formatRegisterFields(formatter, parser, metaRegister, blockRegister);
+
+    registers_->append(metaRegister);
+}
+
+//-----------------------------------------------------------------------------
+// Function: MetaComponent::formatRegisterFields()
+//-----------------------------------------------------------------------------
+void MetaComponent::formatRegisterFields(ExpressionFormatter const& formatter, ExpressionParser const& parser,
+    QSharedPointer<MetaRegister> metaRegister, QSharedPointer<Register> blockRegister)
+{
+    for (auto registerField : *blockRegister->getFields())
+    {
+        MetaField newMetaField;
+        newMetaField.name_ = registerField->name();
+        newMetaField.offset_ = formatter.formatReferringExpression(registerField->getBitOffset());
+        newMetaField.offsetInt_ = parser.parseExpression(newMetaField.offset_).toULongLong();
+        newMetaField.width_ = formatter.formatReferringExpression(registerField->getBitWidth());
+        newMetaField.widthInt_ = parser.parseExpression(newMetaField.width_).toULongLong();
+
+        newMetaField.resetValue_ = QLatin1String("0");
+        QSharedPointer<FieldReset> reset = getFieldResetValues(registerField);
+        if (reset)
+        {
+            newMetaField.resetValue_ = formatter.formatReferringExpression(reset->getResetValue());
+        }
+
+        AccessTypes::Access fieldAccess = registerField->getAccess();
+        if (fieldAccess == AccessTypes::ACCESS_COUNT)
+        {
+            fieldAccess = metaRegister->access_;
+        }
+
+        newMetaField.access_ = fieldAccess;
+
+        metaRegister->fields_.append(newMetaField);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Function: MetaComponent::getFieldResetValues()
+//-----------------------------------------------------------------------------
+QSharedPointer<FieldReset> MetaComponent::getFieldResetValues(QSharedPointer<Field> field) const
+{
+    if (field->getResets())
+    {
+        for (auto reset : *field->getResets())
+        {
+            if (reset->getResetTypeReference().isEmpty())
+            {
+                return reset;
+            }
+        }
+    }
+
+    return QSharedPointer<FieldReset>();
+}
+
+//-----------------------------------------------------------------------------
 // Function: MetaComponent::parseRemapStates
 //-----------------------------------------------------------------------------
 void MetaComponent::parseRemapStates(ExpressionFormatter const& formatter)
@@ -252,4 +380,12 @@ void MetaComponent::parseRemapStates(ExpressionFormatter const& formatter)
             remapState->ports_.append(parsedPort);
         }
     }
+}
+
+//-----------------------------------------------------------------------------
+// Function: MetaComponent::getRegisters()
+//-----------------------------------------------------------------------------
+QSharedPointer<QVector<QSharedPointer<MetaRegister> > > MetaComponent::getRegisters()
+{
+    return registers_;
 }

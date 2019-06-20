@@ -17,9 +17,11 @@
 
 #include <Plugins/VerilogGenerator/CommentWriter/CommentWriter.h>
 #include <Plugins/common/PortSorter/InterfaceDirectionNameSorter.h>
+#include <Plugins/VerilogGenerator/ComponentVerilogWriter/ComponentRegisterVerilogWriter.h>
 #include <Plugins/VerilogGenerator/VerilogWireWriter/VerilogWireWriter.h>
 #include <Plugins/VerilogGenerator/VerilogAssignmentWriter/VerilogAssignmentWriter.h>
 #include <Plugins/VerilogGenerator/VerilogPortWriter/VerilogTopDefaultWriter.h>
+#include <Plugins/VerilogGenerator/VerilogWriterFactory/VerilogRegisterDocument.h>
 
 #include <Plugins/VerilogImport/VerilogSyntax.h>
 
@@ -53,8 +55,8 @@ QSharedPointer<GenerationOutput> VerilogWriterFactory::prepareComponent(QString 
 
     QSharedPointer<VerilogDocument> document = QSharedPointer<VerilogDocument>(new VerilogDocument);
 
-    document->fileName_ = fileName;
-    document->vlnv_ = component->getComponent()->getVlnv().toString();
+    document->setFileName(fileName);
+    document->setVLNV(component->getComponent()->getVlnv().toString());
 
     // Try to find an implementation from the file.
     if (!readImplementation(document, filePath))
@@ -66,13 +68,49 @@ QSharedPointer<GenerationOutput> VerilogWriterFactory::prepareComponent(QString 
     initializeComponentWriters(document, component);
 
     // Create writers.
-    QSharedPointer<TextBodyWriter> implementationWriter(new TextBodyWriter(document->implementation_));
-    document->topWriter_->setImplementation(implementationWriter);
+    QSharedPointer<TextBodyWriter> implementationWriter(new TextBodyWriter(document->getImplementation()));
+    document->getTopWriter()->setImplementation(implementationWriter);
 
-    QSharedPointer<TextBodyWriter> postModuleWriter(new TextBodyWriter(document->postModule_));
-    document->topWriter_->setPostModule(postModuleWriter);
+    QSharedPointer<TextBodyWriter> postModuleWriter(new TextBodyWriter(document->getPostModule()));
+    document->getTopWriter()->setPostModule(postModuleWriter);
 
     return document;
+}
+
+//-----------------------------------------------------------------------------
+// Function: VerilogWriterFactory::prepareRegisterDocument()
+//-----------------------------------------------------------------------------
+QSharedPointer<GenerationOutput> VerilogWriterFactory::prepareRegisterDocument(QString const& outputPath,
+    QSharedPointer<MetaComponent> component)
+{
+    if (component->getRegisters()->isEmpty())
+    {
+        return QSharedPointer<GenerationOutput>();
+    }
+
+    QString moduleName = VerilogSyntax::legalizeName(component->getModuleName()) + QLatin1String("_registers");
+    QString fileName = moduleName + QLatin1String(".v");
+    QString filePath = outputPath + "/" + fileName;
+
+    QSharedPointer<VerilogRegisterDocument> registerDoc(new VerilogRegisterDocument());
+    registerDoc->setFileName(fileName);
+    registerDoc->setVLNV(component->getComponent()->getVlnv().toString());
+
+    QSettings settings;
+    QString currentUser = settings.value("General/Username").toString();
+    QString componentXmlPath = library_->getPath(component->getComponent()->getVlnv());
+    QString documentDescription = QLatin1String("Register file");
+
+    QSharedPointer<VerilogHeaderWriter> newHeaderWriter(new VerilogHeaderWriter(
+        component->getComponent()->getVlnv(), componentXmlPath, currentUser,
+        documentDescription, kactusVersion_, generatorVersion_));
+    QSharedPointer<ComponentRegisterVerilogWriter> newRegisterWriter(
+        new ComponentRegisterVerilogWriter(component, moduleName));
+
+    registerDoc->setHeaderWriter(newHeaderWriter);
+    registerDoc->setRegisterWriter(newRegisterWriter);
+
+    return registerDoc;
 }
 
 //-----------------------------------------------------------------------------
@@ -86,8 +124,8 @@ QList<QSharedPointer<GenerationOutput> > VerilogWriterFactory::prepareDesign(QLi
     {
         QSharedPointer<VerilogDocument> document = QSharedPointer<VerilogDocument>(new VerilogDocument);
         initializeComponentWriters(document, mDesign->getTopInstance());
-        document->fileName_ = mDesign->getTopInstance()->getModuleName() + ".v";
-        document->vlnv_ = mDesign->getTopInstance()->getComponent()->getVlnv().toString();
+        document->setFileName(mDesign->getTopInstance()->getModuleName() + ".v");
+        document->setVLNV(mDesign->getTopInstance()->getComponent()->getVlnv().toString());
 
         initializeDesignWriters(document, mDesign);
 
@@ -147,8 +185,9 @@ bool VerilogWriterFactory::readImplementation(QSharedPointer<VerilogDocument> do
     // Must be able to open it for reading.
     if (!outputFile.open(QIODevice::ReadOnly))
     {
-        messages_->showError(QObject::tr("File %1: The output file exists, but could not open it for reading. The path: %2").
-            arg(document->fileName_, outputPath));
+        messages_->showError(
+            QObject::tr("File %1: The output file exists, but could not open it for reading. The path: %2")
+            .arg(document->getFileName(), outputPath));
         return false;
     }
 
@@ -161,13 +200,13 @@ bool VerilogWriterFactory::readImplementation(QSharedPointer<VerilogDocument> do
     // The document sub class is supposed to know how to find its implementation.
     if (!document->selectImplementation(fileContent, implementation, postModule, error))
     {
-        messages_->showError(QObject::tr("File %1: %2").arg(document->fileName_, error));
+        messages_->showError(QObject::tr("File %1: %2").arg(document->getFileName(), error));
 
         return false;
     }
 
-    document->implementation_ = implementation;
-    document->postModule_ = postModule;
+    document->setImplementation(implementation);
+    document->setPostModule(postModule);
 
     return true;
 }
@@ -182,11 +221,14 @@ void VerilogWriterFactory::initializeComponentWriters(QSharedPointer<VerilogDocu
     QString currentUser = settings.value("General/Username").toString();
     QString componentXmlPath = library_->getPath(component->getComponent()->getVlnv());
 
-    document->headerWriter_ = QSharedPointer<VerilogHeaderWriter>(new VerilogHeaderWriter(component->getComponent()->getVlnv(), 
-        componentXmlPath, currentUser, component->getComponent()->getDescription(), kactusVersion_, generatorVersion_));
+    QSharedPointer<VerilogHeaderWriter> newHeaderWriter(new VerilogHeaderWriter(
+        component->getComponent()->getVlnv(), componentXmlPath, currentUser,
+        component->getComponent()->getDescription(), kactusVersion_, generatorVersion_));
+    document->setHeaderWriter(newHeaderWriter);
 
-    document->topWriter_ = QSharedPointer<ComponentVerilogWriter>(new ComponentVerilogWriter
-        (component, settings_->generateInterfaces_));
+    QSharedPointer<ComponentVerilogWriter> newTopWriter(new ComponentVerilogWriter(
+        component, settings_->generateInterfaces_));
+    document->setTopWriter(newTopWriter);
 }
 
 //-----------------------------------------------------------------------------
@@ -195,21 +237,7 @@ void VerilogWriterFactory::initializeComponentWriters(QSharedPointer<VerilogDocu
 void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocument> document,
     QSharedPointer<MetaDesign> design)
 {
-    document->instanceWriters_.clear();
-
-    document->interconnectionWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->connectionWireWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->adHocWireWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->portWireWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->topAssignmentWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->topDefaultWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
-
-    document->instanceAssignmentWriters_ = QSharedPointer<WriterGroup>(new WriterGroup());
+    document->initializeDesignWriters();
 
     // Comment for top for assignments.
     if (design->getTopInstance()->getPorts()->size() > 0)
@@ -217,7 +245,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
         QSharedPointer<CommentWriter> topAssignmentHeaderWriter(
             new CommentWriter("Assignments for the ports of the encompassing component:"));
         topAssignmentHeaderWriter->setIndent(4);
-        document->topAssignmentWriters_->add(topAssignmentHeaderWriter);
+        document->getTopAssignmentWriters()->add(topAssignmentHeaderWriter);
     }
 
     // Create assignments fort top ports.
@@ -228,13 +256,13 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
             // Create a writer for each assignment of the port.
             foreach (QSharedPointer<MetaPortAssignment> mpa, mPort->downAssignments_)
             {
-                // Current policy dictates that hierarchical inout ports are directly connected to an instance port.
+                // Current policy dictates that hierarchical in-out ports are directly connected to an instance port.
                 // As an exception, it could have a default value assignment.
                 if (mPort->port_->getDirection() != DirectionTypes::INOUT || !mpa->wire_)
                 {
                     QSharedPointer<VerilogAssignmentWriter> topAssignment = QSharedPointer<VerilogAssignmentWriter>
                         (new VerilogAssignmentWriter(mPort->port_->name(), mpa, mPort, true));
-                    document->topAssignmentWriters_->add(topAssignment);
+                    document->getTopAssignmentWriters()->add(topAssignment);
                 }
             }
         }
@@ -242,7 +270,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
         {
             QSharedPointer<VerilogTopDefaultWriter> topDefault = QSharedPointer<VerilogTopDefaultWriter>
                 (new VerilogTopDefaultWriter(mPort));
-            document->topDefaultWriters_->add(topDefault);
+            document->getTopDefaultWriters()->add(topDefault);
         }
     }
 
@@ -254,9 +282,8 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
         QSharedPointer<ComponentInstanceVerilogWriter> instanceWriter(new ComponentInstanceVerilogWriter(
             mInstance, sorter_, settings_->generateInterfaces_));
 
-        document->instanceWriters_.append(instanceWriter);
-
-        document->instanceHeaderWriters_.insert(instanceWriter, createHeaderWriterForInstance(mInstance));
+        document->addInstanceWriter(instanceWriter);
+        document->addInstanceHeaderWriter(instanceWriter, createHeaderWriterForInstance(mInstance));
 
         // Comment for instance assignments.
         if (mInstance->getPorts()->size() > 0)
@@ -264,12 +291,12 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
             QSharedPointer<CommentWriter> portWireHeaderWriter(
                 new CommentWriter(instance->getInstanceName() + " port wires:"));
             portWireHeaderWriter->setIndent(4);
-            document->portWireWriters_->add(portWireHeaderWriter);
+            document->getPortWireWriters()->add(portWireHeaderWriter);
 
             QSharedPointer<CommentWriter> assignmentHeaderWriter(
                 new CommentWriter(instance->getInstanceName() + " assignments:"));
             assignmentHeaderWriter->setIndent(4);
-            document->instanceAssignmentWriters_->add(assignmentHeaderWriter);
+            document->getInstanceAssignmentWriters()->add(assignmentHeaderWriter);
         }
 
         // Create writers for instance ports, wires, and assignments.
@@ -291,15 +318,15 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
                 mPort->port_->name());
 
             // Create a wire for it.
-            document->portWireWriters_->add(QSharedPointer<VerilogWireWriter>(new VerilogWireWriter
-                (physName, mPort->vectorBounds_, mPort->arrayBounds_)));
+            document->getPortWireWriters()->add(QSharedPointer<VerilogWireWriter>(
+                new VerilogWireWriter(physName, mPort->vectorBounds_, mPort->arrayBounds_)));
 
             // Then create assignments, that connect it to logical wires.
             foreach (QSharedPointer<MetaPortAssignment> mpa, mPort->upAssignments_)
             {
                 QSharedPointer<VerilogAssignmentWriter> instanceAssignment = QSharedPointer<VerilogAssignmentWriter>
                     (new VerilogAssignmentWriter(physName, mpa, mPort, false));
-                document->instanceAssignmentWriters_->add(instanceAssignment);
+                document->getInstanceAssignmentWriters()->add(instanceAssignment);
             }
         }
     }
@@ -312,7 +339,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
             QSharedPointer<CommentWriter> connectionWireHeaderWriter(
                 new CommentWriter(mInterconnect->name_ + " wires:"));
             connectionWireHeaderWriter->setIndent(4);
-            document->connectionWireWriters_->add(connectionWireHeaderWriter);
+            document->getConnectionWireWriters()->add(connectionWireHeaderWriter);
         }
 
         foreach (QSharedPointer<MetaWire> gw, mInterconnect->wires_)
@@ -330,9 +357,8 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
 
             if (!hierInout)
             {
-                document->connectionWireWriters_->
-                    add(QSharedPointer<VerilogWireWriter>(new VerilogWireWriter
-                    (VerilogSyntax::legalizeName(gw->name_), gw->bounds_, gw->arrayBounds_)));
+                document->getConnectionWireWriters()->add(QSharedPointer<VerilogWireWriter>(
+                    new VerilogWireWriter(VerilogSyntax::legalizeName(gw->name_), gw->bounds_, gw->arrayBounds_)));
             }
         }
     }
@@ -343,7 +369,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
         QSharedPointer<CommentWriter> adHocWireHeaderWriter(
             new CommentWriter("Ad-hoc wires:"));
         adHocWireHeaderWriter->setIndent(4);
-       document->adHocWireWriters_->add(adHocWireHeaderWriter);
+        document->getAdHocWireWriters()->add(adHocWireHeaderWriter);
     }
 
     foreach (QSharedPointer<MetaWire> adHoc, *design->getAdHocWires())
@@ -362,8 +388,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
         // Thus, if an ad-hoc wire is connected to any hierarchical inout ports, it is no written.
         if (!hierInout)
         {
-            document->adHocWireWriters_->
-                add(QSharedPointer<VerilogWireWriter>(new VerilogWireWriter(
+            document->getAdHocWireWriters()->add(QSharedPointer<VerilogWireWriter>(new VerilogWireWriter(
                 VerilogSyntax::legalizeName(adHoc->name_), adHoc->bounds_, adHoc->arrayBounds_)));
         }
     }
@@ -374,30 +399,7 @@ void VerilogWriterFactory::initializeDesignWriters(QSharedPointer<VerilogDocumen
 //-----------------------------------------------------------------------------
 void VerilogWriterFactory::addWritersToTopInDesiredOrder(QSharedPointer<VerilogDocument> document) const
 {
-    document->topWriter_->add(document->interconnectionWriters_);
-
-    document->topWriter_->add(document->connectionWireWriters_);
-
-    document->topWriter_->add(document->adHocWireWriters_);
-
-    document->topWriter_->add(document->portWireWriters_);
-
-    document->topWriter_->add(document->topAssignmentWriters_);
-
-    document->topWriter_->add(document->topDefaultWriters_);
-
-    document->topWriter_->add(document->instanceAssignmentWriters_);
-
-    foreach(QSharedPointer<ComponentInstanceVerilogWriter> instanceWriter, document->instanceWriters_)
-    {
-        QSharedPointer<Writer> headerWriter = document->instanceHeaderWriters_[instanceWriter];
-
-        QSharedPointer<WriterGroup> instanceGroup(new WriterGroup);
-        instanceGroup->add(headerWriter);
-        instanceGroup->add(instanceWriter);
-
-        document->topWriter_->add(instanceGroup);
-    }
+    document->addWritersToTopComponent();
 }
 
 //-----------------------------------------------------------------------------

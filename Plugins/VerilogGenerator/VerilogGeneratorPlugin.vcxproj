@@ -152,6 +152,7 @@
     <ClCompile Include="..\common\SourceHighlightStyle.cpp" />
     <ClCompile Include="..\PluginSystem\GeneratorPlugin\FileOutputWidget.cpp" />
     <ClCompile Include="..\PluginSystem\GeneratorPlugin\GenerationControl.cpp" />
+    <ClCompile Include="..\PluginSystem\GeneratorPlugin\GenerationOutput.cpp" />
     <ClCompile Include="..\PluginSystem\GeneratorPlugin\HDLGenerationDialog.cpp" />
     <ClCompile Include="..\PluginSystem\GeneratorPlugin\MessagePasser.cpp" />
     <ClCompile Include="..\PluginSystem\GeneratorPlugin\OutputControl.cpp" />
@@ -161,6 +162,7 @@
     <ClCompile Include="CommentWriter\CommentWriter.cpp" />
     <ClCompile Include="common\WriterGroup.cpp" />
     <ClCompile Include="ComponentInstanceVerilogWriter\ComponentInstanceVerilogWriter.cpp" />
+    <ClCompile Include="ComponentVerilogWriter\ComponentRegisterVerilogWriter.cpp" />
     <ClCompile Include="ComponentVerilogWriter\ComponentVerilogWriter.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_FileOutputWidget.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -239,6 +241,7 @@
     <ClCompile Include="VerilogSourceHighlight.cpp" />
     <ClCompile Include="VerilogWireWriter\VerilogWireWriter.cpp" />
     <ClCompile Include="VerilogWriterFactory\VerilogDocument.cpp" />
+    <ClCompile Include="VerilogWriterFactory\VerilogRegisterDocument.cpp" />
     <ClCompile Include="VerilogWriterFactory\VerilogWriterFactory.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -250,6 +253,8 @@
     <ClInclude Include="..\..\editors\ComponentEditor\common\MultipleParameterFinder.h" />
     <ClInclude Include="..\..\editors\ComponentEditor\common\ParameterFinder.h" />
     <ClInclude Include="..\..\editors\ComponentEditor\common\SystemVerilogExpressionParser.h" />
+    <ClInclude Include="ComponentVerilogWriter\ComponentRegisterVerilogWriter.h" />
+    <ClInclude Include="VerilogWriterFactory\VerilogRegisterDocument.h" />
     <CustomBuild Include="..\..\mainwindow\MessageConsole\messageconsole.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Moc%27ing messageconsole.h...</Message>
@@ -315,6 +320,7 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -DUNICODE -DWIN32 -DWIN64 -DQT_NO_DEBUG -DNDEBUG -DQT_CORE_LIB -DQT_GUI_LIB -DVERILOGGENERATORPLUGIN_LIB -DQT_WIDGETS_LIB -DQT_XML_LIB -D_WINDLL  "-I.\GeneratedFiles" "-I.\..\.." "-I." "-I$(QTDIR)\include" "-I.\GeneratedFiles\$(ConfigurationName)\." "-I$(QTDIR)\include\QtCore" "-I$(QTDIR)\include\QtGui" "-I$(QTDIR)\include\QtWidgets" "-I$(QTDIR)\include\QtXml"</Command>
     </CustomBuild>
+    <ClInclude Include="..\PluginSystem\GeneratorPlugin\GenerationOutput.h" />
     <ClInclude Include="..\PluginSystem\GeneratorPlugin\IWriterFactory.h" />
     <CustomBuild Include="..\PluginSystem\GeneratorPlugin\MessagePasser.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>

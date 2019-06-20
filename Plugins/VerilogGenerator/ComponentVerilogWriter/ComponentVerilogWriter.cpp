@@ -116,7 +116,7 @@ void ComponentVerilogWriter::writeModuleDeclaration(QTextStream& outputStream) c
     
     writeParameterDeclarations(outputStream);
 
-    writePortDeclarations(outputStream);     
+    writePortDeclarations(outputStream);
 }
 
 //-----------------------------------------------------------------------------

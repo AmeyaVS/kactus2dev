@@ -14,9 +14,11 @@
 
 #include <QSharedPointer>
 #include <QString>
-
+#include <QVector>
 #include <QMap>
 #include <QMultiMap>
+
+#include <IPXACTmodels/common/AccessTypes.h>
 
 class AbstractionType;
 class AbstractionDefinition;
@@ -56,7 +58,7 @@ struct MetaWire
     QString name_;
     //! The hierarchical ports that are assigned to the wire.
     QList<QSharedPointer<MetaPort> > hierPorts_;
-    //! How many times to the wire is referred by a prot assignment.
+    //! How many times to the wire is referred by a port assignment.
     int refCount;
 };
 
@@ -90,6 +92,55 @@ struct MetaPort
     QMultiMap<QString, QSharedPointer<MetaPortAssignment> > downAssignments_;
 };
 
+struct MetaField
+{
+    //! Field name.
+    QString name_;
+
+    //! Field offset.
+    QString offset_;
+
+    //! Field offset in integer.
+    quint64 offsetInt_;
+
+    //! Field width.
+    QString width_;
+
+    //! Field width in integer.
+    quint64 widthInt_;
+
+    //! Field reset value.
+    QString resetValue_;
+
+    //! Field access.
+    AccessTypes::Access access_;
+};
+
+// Q_DECLARE_TYPEINFO(MetaField, Q_MOVABLE_TYPE);
+
+struct MetaRegister
+{
+    //! Register name.
+    QString name_;
+
+    //! Register size.
+    QString size_;
+
+    quint64 sizeInt_;
+
+    //! Register offset.
+    QString offset_;
+    
+    //! Register offset in integer.
+    quint64 offsetInt_;
+
+    //! Register access.
+    AccessTypes::Access access_;
+
+    //! Register fields.
+    QVector<MetaField> fields_;
+};
+
 struct MetaInterface;
 
 struct MetaInterconnection
@@ -98,7 +149,7 @@ struct MetaInterconnection
     QString name_;
     //! The wires for the logical wires in interconnections.
     QMap<QString, QSharedPointer<MetaWire> > wires_;
-    //! The hierarchical interfaces that are assigned to the interconection.
+    //! The hierarchical interfaces that are assigned to the interconnection.
     QList<QSharedPointer<MetaInterface> > hierIfs_;
 };
 

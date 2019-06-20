@@ -20,6 +20,10 @@
 
 class ExpressionFormatter;
 class MessageMediator;
+class Register;
+class Field;
+class FieldReset;
+class ExpressionParser;
 
 //-----------------------------------------------------------------------------
 // Class used to parse relevant information from IP-XACT component for HDL generation.
@@ -80,6 +84,13 @@ public:
     QSharedPointer<QMap<QString,QSharedPointer<MetaPort> > > getPorts() { return ports_; }
     
     /*!
+     *  Get the list of registers.
+     *
+     *      @return The list of registers.
+     */
+    QSharedPointer<QVector<QSharedPointer<MetaRegister> > > getRegisters();
+
+    /*!
      *  Returns name of the associated HDL module.
      */
     QString getModuleName() const { return moduleName_; }
@@ -137,6 +148,45 @@ private:
     virtual void formatPorts(ExpressionFormatter const& formatter);
 
     /*!
+     *  Format the component registers into meta registers.
+     *
+     *      @param [in] formatter   Expression formatter.
+     *      @param [in] parser      Expression parser.
+     */
+    virtual void formatRegisters(ExpressionFormatter const& formatter, ExpressionParser const& parser);
+
+    /*!
+     *  Format a single register.
+     *
+     *      @param [in] formatter       Expression formatter.
+     *      @param [in] parser          Expression parser.
+     *      @param [in] blockRegister   The selected register.
+     *      @param [in] mapAUB          Address unit bits of the containing memory map.
+     */
+    void formatSingleRegister(ExpressionFormatter const& formatter, ExpressionParser const& parser,
+        QSharedPointer<Register> blockRegister, quint64 const& mapAUB);
+
+    /*!
+     *  Format the register fields into meta fields.
+     *
+     *      @param [in] formatter       Expression formatter.
+     *      @param [in] parser          Expression parser.
+     *      @param [in] metaRegister    The containing meta register.
+     *      @param [in] blockRegister   The actual register.
+     */
+    void formatRegisterFields(ExpressionFormatter const& formatter, ExpressionParser const& parser,
+        QSharedPointer<MetaRegister> metaRegister, QSharedPointer<Register> blockRegister);
+
+    /*!
+     *  Get the hard reset values of the selected field.
+     *
+     *      @param [in] field   The selected field.
+     *
+     *      @return Hard reset values of the selected field.
+     */
+    QSharedPointer<FieldReset> getFieldResetValues(QSharedPointer<Field> field) const;
+
+    /*!
      *  Goes through the remap states, connects remaps to correct ports.
      */
     void parseRemapStates(ExpressionFormatter const& formatter);
@@ -160,6 +210,9 @@ private:
 
     //! The ports of the component keyed with its physical name.
     QSharedPointer<QMap<QString,QSharedPointer<MetaPort> > > ports_;
+
+    //! The registers of the component.
+    QSharedPointer<QVector<QSharedPointer<MetaRegister> > > registers_;
 
     //! The filesets referred by the activeInstantiation_;
     QSharedPointer<QList<QSharedPointer<FileSet> > > fileSets_;

@@ -4774,6 +4774,9 @@
     <ClCompile Include="GeneratedFiles\moc_PortsFilter.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="Plugins\PluginSystem\GeneratorPlugin\GenerationOutput.cpp">
+      <Filter>Source Files\Plugins\PluginSystem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="common\layouts\HCollisionLayout.inl">
@@ -7309,6 +7312,9 @@
     </ClInclude>
     <ClInclude Include="editors\ComponentEditor\ports\TransactionalPortColumns.h">
       <Filter>Header Files\editors\ComponentEditor\ports</Filter>
+    </ClInclude>
+    <ClInclude Include="Plugins\PluginSystem\GeneratorPlugin\GenerationOutput.h">
+      <Filter>Header Files\Plugins\PluginSystem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

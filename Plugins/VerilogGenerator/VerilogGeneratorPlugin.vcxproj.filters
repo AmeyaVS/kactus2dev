@@ -316,6 +316,15 @@
     <ClCompile Include="VerilogPortWriter\VerilogTopDefaultWriter.cpp">
       <Filter>Source Files\VerilogPortWriter</Filter>
     </ClCompile>
+    <ClCompile Include="..\PluginSystem\GeneratorPlugin\GenerationOutput.cpp">
+      <Filter>Source Files\GenerationControl</Filter>
+    </ClCompile>
+    <ClCompile Include="VerilogWriterFactory\VerilogRegisterDocument.cpp">
+      <Filter>Source Files\VerilogWriterFactory</Filter>
+    </ClCompile>
+    <ClCompile Include="ComponentVerilogWriter\ComponentRegisterVerilogWriter.cpp">
+      <Filter>Source Files\ComponentVerilogWriter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common\Writer.h">
@@ -434,6 +443,15 @@
     </ClInclude>
     <ClInclude Include="VerilogPortWriter\VerilogTopDefaultWriter.h">
       <Filter>Header Files\VerilogPortWriter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\PluginSystem\GeneratorPlugin\GenerationOutput.h">
+      <Filter>Header Files\GenerationControl</Filter>
+    </ClInclude>
+    <ClInclude Include="VerilogWriterFactory\VerilogRegisterDocument.h">
+      <Filter>Header Files\VerilogWriterFactory</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentVerilogWriter\ComponentRegisterVerilogWriter.h">
+      <Filter>Header Files\ComponentVerilogWriter</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

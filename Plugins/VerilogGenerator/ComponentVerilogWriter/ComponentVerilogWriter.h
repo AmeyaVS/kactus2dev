@@ -142,13 +142,6 @@ private:
     void writeRemapSates(QTextStream& outputStream) const;
 
     /*!
-     *  Writes the module port declaration.
-     *
-     *      @param [in] outputStream   The output to write to.
-     */
-    void writeRegisters(QTextStream& outputStream) const;
-
-    /*!
      *  Writes the ending clause for the module.
      *
      *      @param [in] outputStream   The output to write to.
