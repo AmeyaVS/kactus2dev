@@ -17,11 +17,16 @@
 
 namespace
 {
-    QString const MAINDATAWIDTH_STRING = QLatin1String("main_dataWidth");
-    QString const MAINADDRESSWIDTH_STRING = QLatin1String("main_addressWidth");
-    QString const SIZE_STRING = QLatin1String("_size");
-    QString const OFFSET_STRING = QLatin1String("_offset");
+    QString const MAINDATAWIDTH_STRING = QLatin1String("DATA_WIDTH");
+    QString const MAINADDRESSWIDTH_STRING = QLatin1String("ADDR_WIDTH");
+
+    QString const REGISTERSIZE_STRING = QLatin1String("_SIZE");
+    QString const REGISTEROFFSET_STRING = QLatin1String("_ADDROFFSET");
+    QString const FIELDWIDTH_STRING = QLatin1String("_BITWIDTH");
+    QString const FIELDOFFSET_STRING = QLatin1String("_BITOFFSET");
+
     QString const ADDRESS_STRING = QLatin1String("addr");
+    QString const DATA_STRING = QLatin1String("_data");
 
     QString const INPUT_STRING = QLatin1String("input");
     QString const OUTPUT_STRING = QLatin1String("output");
@@ -54,6 +59,12 @@ namespace
     QString const EQUALCHECK_STRING = QLatin1String("==");
     QString const ZEROBITS_STRING = QLatin1String("1'b0");
     QString const CASE_STRING = QLatin1String("case");
+    QString const ENDCASE_STRING = QLatin1String("endcase");
+
+    QString const ALWAYSCOMB_STRING = QLatin1String("always_comb");
+    QString const READLOGIC_STRING = QLatin1String("read_logic");
+    QString const CONSTRUCTDATA_STRING = QLatin1String("construct_data");
+    QString const DRIVEOUTPUTS_STRING = QLatin1String("drive_outputs");
 
     QString const BEGIN_STRING = QLatin1String("begin");
     QString const END_STRING = QLatin1String("end");
@@ -67,11 +78,10 @@ ComponentRegisterVerilogWriter::ComponentRegisterVerilogWriter(QSharedPointer<Me
 WriterGroup(),
 registerModuleName_(moduleName),
 component_(component),
-parameters_(),
 dataWidth_(QLatin1String("32")),
 addressWidth_(getAddressWidth())
 {
-    setupParameters();
+
 }
 
 //-----------------------------------------------------------------------------
@@ -99,38 +109,6 @@ QString ComponentRegisterVerilogWriter::getAddressWidth() const
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::setupParameters()
-//-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::setupParameters()
-{
-    QString dataWidthName = QLatin1String("DATA_WIDTH");
-    QString addressWidthName = QLatin1String("ADDR_WIDTH");
-
-    parameters_.insert(MAINDATAWIDTH_STRING, dataWidthName);
-    parameters_.insert(MAINADDRESSWIDTH_STRING, addressWidthName);
-
-    for (auto componentRegister : *component_->getRegisters())
-    {
-        QString registerName = componentRegister->name_;
-        QString registerSizeTitle = registerName.toUpper() + QLatin1String("_SIZE");
-        QString registerOffsetTitle = registerName.toUpper() + QLatin1String("_ADDROFFSET");
-
-        parameters_.insert(registerName + SIZE_STRING, registerSizeTitle);
-        parameters_.insert(registerName + OFFSET_STRING, registerOffsetTitle);
-
-        for (auto registerField : componentRegister->fields_)
-        {
-            QString fieldName = getCombinedRegisterFieldName(componentRegister, registerField);
-            QString fieldOffsetTitle = fieldName.toUpper() + QLatin1String("_BITOFFSET");
-            QString fieldWidthTitle = fieldName.toUpper() + QLatin1String("_BITWIDTH");
-
-            parameters_.insert(fieldName + OFFSET_STRING, fieldOffsetTitle);
-            parameters_.insert(fieldName + SIZE_STRING, fieldWidthTitle);
-        }
-    }
-}
-
-//-----------------------------------------------------------------------------
 // Function: ComponentRegisterVerilogWriter::write
 //-----------------------------------------------------------------------------
 void ComponentRegisterVerilogWriter::write(QTextStream& outputStream) const
@@ -145,6 +123,11 @@ void ComponentRegisterVerilogWriter::write(QTextStream& outputStream) const
     writeRegisterData(outputStream);
     writeControlRegisters(outputStream);
     writeStatusRegisters(outputStream);
+
+    writeReadLogicComb(outputStream);
+    writeConstructComb(outputStream);
+    writeDriveOutputsComb(outputStream);
+
 	writeModuleEnd(outputStream);
 }
 
@@ -207,12 +190,10 @@ void ComponentRegisterVerilogWriter::writeParameterDeclarations(QTextStream& out
 //-----------------------------------------------------------------------------
 void ComponentRegisterVerilogWriter::writeMainParameters(QTextStream& outputStream) const
 {
-    QString dataWidthName = parameters_.value(MAINDATAWIDTH_STRING);
-    writeParameter(outputStream, PARAMETER_STRING, dataWidthName, dataWidth_);
+    writeParameter(outputStream, PARAMETER_STRING, MAINDATAWIDTH_STRING, dataWidth_);
     outputStream << QLatin1Char(',') << endl;
 
-    QString addressWidthName = parameters_.value(MAINADDRESSWIDTH_STRING);
-    writeParameter(outputStream, PARAMETER_STRING, addressWidthName, addressWidth_);
+    writeParameter(outputStream, PARAMETER_STRING, MAINADDRESSWIDTH_STRING, addressWidth_);
     outputStream << QLatin1Char(',') << endl;
 }
 
@@ -224,12 +205,10 @@ void ComponentRegisterVerilogWriter::writeSingleRegisterParameters(QTextStream& 
 {
     QString registerName = componentRegister->name_;
 
-    QString sizeTitle = parameters_.value(registerName + SIZE_STRING);
-    QString offsetTitle = parameters_.value(registerName + OFFSET_STRING);
-
-    writeParameter(outputStream, PARAMETER_STRING, sizeTitle, componentRegister->size_);
+    writeParameter(outputStream, PARAMETER_STRING, getRegisterSize(componentRegister), componentRegister->size_);
     outputStream << QLatin1Char(',') << endl;
-    writeParameter(outputStream, PARAMETER_STRING, offsetTitle, componentRegister->offset_);
+    writeParameter(
+        outputStream, PARAMETER_STRING, getRegisterOffset(componentRegister), componentRegister->offset_);
 
     if (!componentRegister->fields_.isEmpty())
     {
@@ -237,6 +216,22 @@ void ComponentRegisterVerilogWriter::writeSingleRegisterParameters(QTextStream& 
 
         writeRegisterFieldParameters(outputStream, componentRegister);
     }
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getRegisterSize()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getRegisterSize(QSharedPointer<MetaRegister> componentRegister) const
+{
+    return componentRegister->name_.toUpper() + REGISTERSIZE_STRING;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getRegisterOffset()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getRegisterOffset(QSharedPointer<MetaRegister> componentRegister) const
+{
+    return componentRegister->name_.toUpper() + REGISTEROFFSET_STRING;
 }
 
 //-----------------------------------------------------------------------------
@@ -263,10 +258,10 @@ void ComponentRegisterVerilogWriter::writeRegisterFieldParameters(QTextStream& o
         MetaField const& field = componentRegister->fields_.at(i);
         QString fieldName = getCombinedRegisterFieldName(componentRegister, field);
 
-        writeParameter(outputStream, PARAMETER_STRING, getFieldBitOffsetParameter(fieldName), field.offset_);
+        writeParameter(outputStream, PARAMETER_STRING, getFieldBitOffset(fieldName), field.offset_);
         outputStream << QLatin1Char(',') << endl;
 
-        writeParameter(outputStream, PARAMETER_STRING, getFieldWidthParameter(fieldName), field.width_);
+        writeParameter(outputStream, PARAMETER_STRING, getFieldWidth(fieldName), field.width_);
 
         if (i < componentRegister->fields_.size() - 1)
         {
@@ -286,13 +281,13 @@ void ComponentRegisterVerilogWriter::writePortDeclarations(QTextStream& outputSt
     outputStream << QLatin1Char(',') << endl;
     writePort(outputStream, INPUT_STRING, RSTN_STRING);
     outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, ADDRESS_STRING, parameters_.value(MAINADDRESSWIDTH_STRING));
+    writePort(outputStream, INPUT_STRING, ADDRESS_STRING, MAINADDRESSWIDTH_STRING);
     outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, WDATA_STRING, parameters_.value(MAINDATAWIDTH_STRING));
+    writePort(outputStream, INPUT_STRING, WDATA_STRING, MAINDATAWIDTH_STRING);
     outputStream << QLatin1Char(',') << endl;
     writePort(outputStream, INPUT_STRING, WRITENOTREAD_STRING);
     outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, OUTPUT_STRING, RDATA_STRING, parameters_.value(MAINDATAWIDTH_STRING));
+    writePort(outputStream, OUTPUT_STRING, RDATA_STRING, MAINDATAWIDTH_STRING);
 
     writeRegisterPortDeclarations(outputStream);
 
@@ -324,7 +319,7 @@ void ComponentRegisterVerilogWriter::writeRegisterPortDeclarations(QTextStream& 
 
             QString combiFieldName = getCombinedRegisterFieldName(componentRegister, registerField);
 
-            QString portSize = parameters_.value(combiFieldName + SIZE_STRING);
+            QString portSize = getFieldWidth(combiFieldName);
             QString portName = combiFieldName + QLatin1Char('_') + portType;
 
             writePort(outputStream, portType, portName, portSize);
@@ -399,7 +394,7 @@ void ComponentRegisterVerilogWriter::writeLocalParameters(QTextStream& outputStr
     {
         QSharedPointer<MetaRegister> componentRegister = component_->getRegisters()->at(i);
 
-        QString parameterName = componentRegister->name_ + QLatin1Char('_') + ADDRESS_STRING;
+        QString parameterName = getRegisterAddressName(componentRegister);
         QString registerAddress =
             getValueInBaseFormat(componentRegister->offset_, addressWidth_, addressWidth_.toULongLong(), 2);
 
@@ -482,12 +477,12 @@ void ComponentRegisterVerilogWriter::writeRegisterData(QTextStream& outputStream
 
     for (auto componentRegister : *component_->getRegisters())
     {
-        registerNames.append(componentRegister->name_);
+        registerNames.append(getRegisterDataName(componentRegister));
 
         for (auto registerField : componentRegister->fields_)
         {
             QString fieldName = getCombinedRegisterFieldName(componentRegister, registerField);
-            QString fieldWidth = parameters_.value(fieldName + SIZE_STRING);
+            QString fieldWidth = getFieldWidth(fieldName);
 
             writeItemData(outputStream, fieldWidth, getFieldRegisterName(componentRegister, registerField));
             outputStream << QLatin1Char(';') << endl;
@@ -495,7 +490,7 @@ void ComponentRegisterVerilogWriter::writeRegisterData(QTextStream& outputStream
     }
 
     outputStream << endl;
-    writeItemData(outputStream, parameters_.value(MAINDATAWIDTH_STRING), registerNames.join(", "));
+    writeItemData(outputStream, MAINDATAWIDTH_STRING, registerNames.join(", "));
     outputStream << QLatin1Char(';') << endl << endl;
 }
 
@@ -641,7 +636,7 @@ void ComponentRegisterVerilogWriter::writeWriteNotReadRegisters(QTextStream& out
         QVector<MetaField> outputFields = getOutputFields(componentRegister);
         if (!outputFields.isEmpty())
         {
-            QString registerAddress = componentRegister->name_ + QLatin1Char('_') + ADDRESS_STRING;
+            QString registerAddress = getRegisterAddressName(componentRegister);
             outputStream << indentation(indentationCount) << registerAddress << QLatin1Char(':') << endl;
             writeBeginLine(outputStream, indentationCount);
 
@@ -649,8 +644,8 @@ void ComponentRegisterVerilogWriter::writeWriteNotReadRegisters(QTextStream& out
             {
                 QString fieldName = getCombinedRegisterFieldName(componentRegister, field);
                 QString fieldRegisterName = getFieldRegisterName(componentRegister, field);
-                QString fieldOffsetParameter = getFieldBitOffsetParameter(fieldName);
-                QString fieldWidthParameter = getFieldWidthParameter(fieldName);
+                QString fieldOffsetParameter = getFieldBitOffset(fieldName);
+                QString fieldWidthParameter = getFieldWidth(fieldName);
 
                 QString registerData = fieldRegisterName + QLatin1String(" = ") + WDATA_STRING + QLatin1Char('[') +
                     fieldOffsetParameter + QLatin1Char('+') + fieldWidthParameter + QLatin1String("-1:") +
@@ -662,6 +657,8 @@ void ComponentRegisterVerilogWriter::writeWriteNotReadRegisters(QTextStream& out
             writeEndLine(outputStream, indentationCount);
         }
     }
+
+    writeCaseEndLine(outputStream, indentationCount);
 }
 
 //-----------------------------------------------------------------------------
@@ -671,6 +668,18 @@ void ComponentRegisterVerilogWriter::writeCaseStartLine(QTextStream& outputStrea
 {
     outputStream << indentation(indentationCount) << CASE_STRING << QLatin1Char('(') << ADDRESS_STRING <<
         QLatin1Char(')') << endl;
+
+    indentationCount++;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeCaseEndLine()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeCaseEndLine(QTextStream& outputStream, int& indentationCount) const
+{
+    indentationCount--;
+
+    outputStream << indentation(indentationCount) << ENDCASE_STRING << endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -764,17 +773,189 @@ void ComponentRegisterVerilogWriter::writeStatusRegisterInput(QTextStream& outpu
 //-----------------------------------------------------------------------------
 // Function: ComponentRegisterVerilogWriter::getFieldBitOffsetName()
 //-----------------------------------------------------------------------------
-QString ComponentRegisterVerilogWriter::getFieldBitOffsetParameter(QString const& combinedName) const
+QString ComponentRegisterVerilogWriter::getFieldBitOffset(QString const& combinedName) const
 {
-    return parameters_.value(combinedName + OFFSET_STRING);
+    return combinedName.toUpper() + FIELDOFFSET_STRING;
 }
 
 //-----------------------------------------------------------------------------
 // Function: ComponentRegisterVerilogWriter::getFieldWidthName()
 //-----------------------------------------------------------------------------
-QString ComponentRegisterVerilogWriter::getFieldWidthParameter(QString const& combinedName) const
+QString ComponentRegisterVerilogWriter::getFieldWidth(QString const& combinedName) const
 {
-    return parameters_.value(combinedName + SIZE_STRING);
+    return combinedName.toUpper() + FIELDWIDTH_STRING;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeReadLogicComb()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeReadLogicComb(QTextStream& outputStream) const
+{
+    int indentationCount = 1;
+
+    writeCombLine(outputStream, indentationCount);
+    outputStream << indentation(indentationCount);
+    writeRegisterBeginLine(outputStream, READLOGIC_STRING, indentationCount);
+    writeDataZeroLine(outputStream, indentationCount, RDATA_STRING);
+
+    writeReadLogicRegisters(outputStream, indentationCount);
+
+    writeEndLine(outputStream, indentationCount);
+    outputStream << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeCombLine()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeCombLine(QTextStream& outputStream, int& indentationCount) const
+{
+    outputStream << indentation(indentationCount) << ALWAYSCOMB_STRING << endl;
+    indentationCount++;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeDataZeroLine()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeDataZeroLine(QTextStream& outputStream, int& indentationCount,
+    QString const& dataName) const
+{
+    QString dataString = dataName + QLatin1String(" = 0;");
+    outputStream << indentation(indentationCount) << dataString << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeReadLogicRegisters()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeReadLogicRegisters(QTextStream& outputStream, int& indentationCount)
+    const
+{
+    writeCaseStartLine(outputStream, indentationCount);
+
+    for (QSharedPointer<MetaRegister> currentRegister : *component_->getRegisters())
+    {
+        QString registerAddress = getRegisterAddressName(currentRegister);
+        outputStream << indentation(indentationCount) << registerAddress << QLatin1Char(':') << endl;
+        writeBeginLine(outputStream, indentationCount);
+
+        outputStream << indentation(indentationCount) << RDATA_STRING << QLatin1String(" = ") <<
+            getRegisterDataName(currentRegister) << QLatin1Char(';') << endl;
+
+        writeEndLine(outputStream, indentationCount);
+    }
+
+    writeCaseEndLine(outputStream, indentationCount);
+
+    outputStream << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeConstructComb()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeConstructComb(QTextStream& outputStream) const
+{
+    int indentationCount = 1;
+
+    writeCombLine(outputStream, indentationCount);
+    outputStream << indentation(indentationCount);
+    writeRegisterBeginLine(outputStream, CONSTRUCTDATA_STRING, indentationCount);
+
+    writeRegisterDataZeroLines(outputStream, indentationCount);
+    writeRegisterConstructData(outputStream, indentationCount);
+
+    writeEndLine(outputStream, indentationCount);
+
+    outputStream << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeRegisterDataZeroLines()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeRegisterDataZeroLines(QTextStream& outputStream, int& indentationCount)
+    const
+{
+    for (auto componentRegister : *component_->getRegisters())
+    {
+        QString registerData = getRegisterDataName(componentRegister) + QLatin1String(" = 0;");
+        outputStream << indentation(indentationCount) << registerData << endl;
+    }
+
+    outputStream << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeRegisterConstructData()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeRegisterConstructData(QTextStream& outputStream, int& indentationCount)
+    const
+{
+    for (auto componentregister : *component_->getRegisters())
+    {
+        QString registerName = getRegisterDataName(componentregister);
+
+        for (auto field : componentregister->fields_)
+        {
+            QString fieldCombiName = getCombinedRegisterFieldName(componentregister, field);
+            QString fieldOffset = getFieldBitOffset(fieldCombiName);
+            QString fieldWidth = getFieldWidth(fieldCombiName);
+
+            QString dataLine = registerName + QLatin1Char('[') + fieldOffset + QLatin1Char('+') + fieldWidth +
+                QLatin1String("-1:") + fieldOffset + QLatin1String("] = ") + fieldCombiName + QLatin1Char(';');
+            outputStream << indentation(indentationCount) << dataLine << endl;
+        }
+
+        if (componentregister != component_->getRegisters()->last())
+        {
+            outputStream << endl;
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeDriveOutputsComb()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeDriveOutputsComb(QTextStream& outputStream) const
+{
+    int indentationCount = 1;
+
+    writeCombLine(outputStream, indentationCount);
+    outputStream << indentation(indentationCount);
+    writeRegisterBeginLine(outputStream, DRIVEOUTPUTS_STRING, indentationCount);
+
+    writeOutputControls(outputStream, indentationCount);
+
+    writeEndLine(outputStream, indentationCount);
+
+    outputStream << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::writeOutputControls()
+//-----------------------------------------------------------------------------
+void ComponentRegisterVerilogWriter::writeOutputControls(QTextStream& outputStream, int& indentationCount) const
+{
+    for (auto componentRegister : *component_->getRegisters())
+    {
+        for (auto field : componentRegister->fields_)
+        {
+            if (fieldPortIsOutput(field.access_))
+            {
+                QString portName = getPortName(componentRegister, field, OUTPUT_STRING);
+                QString fieldRegister = getFieldRegisterName(componentRegister, field);
+
+                outputStream << indentation(indentationCount) << portName << QLatin1String(" = ") << fieldRegister <<
+                    QLatin1Char(';') << endl;
+            }
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getPortName()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getPortName(QSharedPointer<MetaRegister> containingRegister,
+    MetaField const& field, QString const& portType) const
+{
+    return getCombinedRegisterFieldName(containingRegister, field) + QLatin1Char('_') + portType;
 }
 
 //-----------------------------------------------------------------------------
@@ -783,4 +964,21 @@ QString ComponentRegisterVerilogWriter::getFieldWidthParameter(QString const& co
 void ComponentRegisterVerilogWriter::writeModuleEnd(QTextStream& outputStream) const
 {
     outputStream << "endmodule" << endl;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getRegisterAddressName()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getRegisterAddressName(QSharedPointer<MetaRegister> componentRegister)
+    const
+{
+    return componentRegister->name_ + QLatin1Char('_') + ADDRESS_STRING;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getRegisterDataName()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getRegisterDataName(QSharedPointer<MetaRegister> componentRegister) const
+{
+    return componentRegister->name_ + DATA_STRING;
 }

@@ -63,11 +63,6 @@ private:
      */
     QString getAddressWidth() const;
 
-    /*!
-     *  Setup the parameter list.
-     */
-    void setupParameters();
-
      /*!
       *  Checks if the writer should write nothing.
       *
@@ -104,6 +99,24 @@ private:
      */
     void writeSingleRegisterParameters(QTextStream& outputStream, QSharedPointer<MetaRegister> componentRegister)
         const;
+
+    /*!
+     *  Get the size parameter of the selected register.
+     *
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return Size parameter of the selected register.
+     */
+    QString getRegisterSize(QSharedPointer<MetaRegister> componentRegister) const;
+
+    /*!
+     *  Get the offset parameter of the selected register.
+     *
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return Offset parameter of the selected register.
+     */
+    QString getRegisterOffset(QSharedPointer<MetaRegister> componentRegister) const;
 
     /*!
      *  Write the parameters of register fields.
@@ -294,6 +307,14 @@ private:
     void writeCaseStartLine(QTextStream& outputStream, int& indentationCount) const;
 
     /*!
+     *  Writes a case end line.
+     *
+     *      @param [in] outputStream        The output to write to.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     */
+    void writeCaseEndLine(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
      *  Gets a list of the output fields of the selected register.
      *
      *      @param [in] componentRegister   The selected register.
@@ -335,6 +356,94 @@ private:
     void writeStatusRegisterInput(QTextStream& outputStream, int& indentationCount) const;
 
     /*!
+     *  Write the always comb for read logic.
+     *
+     *      @param [in] outputStream    The output to write into.
+     */
+    void writeReadLogicComb(QTextStream& outputStream) const;
+
+    /*!
+     *  Write the comb line.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     */
+    void writeCombLine(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
+     *  Write a line for setting data to 0.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     *      @param [in] dataName            Name of the data.
+     */
+    void writeDataZeroLine(QTextStream& outputStream, int& indentationCount, QString const& dataName) const;
+
+    /*!
+     *  Write the read logic registers.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     */
+    void writeReadLogicRegisters(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
+     *  Write the always comb for construct data.
+     *
+     *      @param [in] outputStream    The output to write into.
+     */
+    void writeConstructComb(QTextStream& outputStream) const;
+
+    /*!
+     *  Write the register data to zero.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     */
+    void writeRegisterDataZeroLines(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
+     *  Write the register construct data.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     */
+    void writeRegisterConstructData(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
+     *  Write the always comb for drive outputs.
+     *
+     *      @param [in] outputStream    The output to write into.
+     */
+    void writeDriveOutputsComb(QTextStream& outputStream) const;
+
+    /*!
+     *  Write the drive outputs.
+     *
+     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentationCount    Current depth of the indentation.
+     */
+    void writeOutputControls(QTextStream& outputStream, int& indentationCount) const;
+
+    /*!
+     *  Get the data name of a selected register.
+     *
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return Data name of the selected register.
+     */
+    QString getRegisterDataName(QSharedPointer<MetaRegister> componentRegister) const;
+
+    /*!
+     *  Get the address name of a selected register.
+     *
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return Address name of the selected register.
+     */
+    QString getRegisterAddressName(QSharedPointer<MetaRegister> componentRegister) const;
+
+    /*!
      *  Get the selected field port name.
      *
      *      @param [in] containingRegister  Register containing the selected field.
@@ -353,7 +462,7 @@ private:
      *
      *      @return The offset parameter of the selected field.
      */
-    QString getFieldBitOffsetParameter(QString const& combinedName) const;
+    QString getFieldBitOffset(QString const& combinedName) const;
 
     /*!
      *  Get the width parameter of the field.
@@ -362,7 +471,7 @@ private:
      *
      *      @return The width parameter of the selected field.
      */
-    QString getFieldWidthParameter(QString const& combinedName) const;
+    QString getFieldWidth(QString const& combinedName) const;
 
     /*!
      *  Get the selected value in the selected base format.
@@ -424,9 +533,6 @@ private:
 
     //! The component to write to registers module from.
     QSharedPointer<MetaComponent> component_;
-
-    //! Contains the parameter names matched with the container.
-    QMap<QString, QString> parameters_;
 
     //! The data width.
     QString dataWidth_;
