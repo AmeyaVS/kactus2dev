@@ -71,34 +71,80 @@ private:
     bool nothingToWrite() const;
 
     /*!
-     *  Writes the module declaration.
+     *  Creates the module declaration.
      *
-     *      @param [in] outputStream   The output to write to.
+     *      @param [in] output  The register template to write to.
      */
-    void writeModuleDeclaration( QTextStream& outputStream ) const;
+    void createModuleName(QString& output) const;
 
      /*!
-      *  Writes the module parameter declaration.
+      *  Creates the module parameter declarations.
       *
-      *      @param [in] outputStream   The output to write to.
+      *     @param [in] output  The register template to write to.
       */
-    void writeParameterDeclarations(QTextStream& outputStream) const;
+    void createParameters(QString& output) const;
 
     /*!
-     *  Write the basic parameters.
+     *  Creates the basic parameters.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] indentation     The parameter indentation.
+     *
+     *      @return The basic parameters.
      */
-    void writeMainParameters(QTextStream& outputStream) const;
+    QString createMainParameters(QString const& indentation) const;
 
     /*!
-     *  Write the parameters of a single register.
+     *  Creates the register parameters.
      *
-     *      @param [in] outputStream        The output to write to.
-     *      @param [in] componentRegister   The register being written.
+     *      @param [in] indentation     The parameter indentation.
+     *
+     *      @return The register parameters.
      */
-    void writeSingleRegisterParameters(QTextStream& outputStream, QSharedPointer<MetaRegister> componentRegister)
+    QString createRegisterParameters(QString const& indentation) const;
+
+    /*!
+     *  Get the matching row from the selected template.
+     *
+     *      @param [in] expressionPattern   The expression to look for in the template.
+     *      @param [in] templateContents    The register template.
+     *
+     *      @return The matching row from the template..
+     */
+    QString getPatternInTemplate(QString const& expressionPattern, QString const& templateContents) const;
+
+    /*!
+     *  Get the indentation of the selected row.
+     *
+     *      @param [in] expressionPattern   The selected pattern row.
+     *
+     *      @return The indentation of the selected row.
+     */
+    QString getIndentation(QString const& expressionPattern) const;
+
+    /*!
+     *  Creates the parameters of a single register.
+     *
+     *      @param [in] indentation         The parameter indentation.
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return The parameters of a single register.
+     */
+    QString getSingleRegisterParameters(QString const& indentation, QSharedPointer<MetaRegister> componentRegister)
         const;
+
+    /*!
+     *  Creates a row for a single parameter declaration.
+     *
+     *      @param [in] indentation     The parameter indentation.
+     *      @param [in] parameterType   Type of the parameter.
+     *      @param [in] parameterName   Name of the parameter.
+     *      @param [in] parameterValue  Value of the parameter.
+     *      @param [in] endLine         Should the parameter end with a ;.
+     *
+     *      @return The created parameter row.
+     */
+    QString createParameter(QString const& indentation, QString const& parameterType, QString const& parameterName,
+        QString const& parameterValue, bool endLine = false) const;
 
     /*!
      *  Get the size parameter of the selected register.
@@ -119,49 +165,44 @@ private:
     QString getRegisterOffset(QSharedPointer<MetaRegister> componentRegister) const;
 
     /*!
-     *  Write the parameters of register fields.
+     *  Create parameters for the selected register fields.
      *
-     *      @param [in] outputStream        The output to write to.
-     *      @param [in] componentRegister   The register being written.
+     *      @param [in] indentation         The parameter indentation.
+     *      @param [in] componentRegister   The containing register.
+     *
+     *      @return List of field parameter rows.
      */
-    void writeRegisterFieldParameters(QTextStream& outputStream, QSharedPointer<MetaRegister> componentRegister)
-        const;
+    QStringList createRegisterFieldParameters(QString const& indentation,
+        QSharedPointer<MetaRegister> componentRegister) const;
 
     /*!
-     *  Writes a single parameter declaration.
+     *  Creates the port declarations.
      *
-     *      @param [in] outputStream    The output to write to.
-     *      @param [in] parameterType   Type of the parameter.
-     *      @param [in] parameterName   Name of the parameter.
-     *      @param [in] parameterValue  Value of the parameter.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeParameter(QTextStream& outputStream, QString const& parameterType, QString const& parameterName,
-        QString const& parameterValue) const;
+    void createPortDeclarations(QString& registerTemplate) const;
 
     /*!
-     *  Writes port declarations.
+     *  Creates the standard port declarations.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] indentation     The parameter indentation.
+     *
+     *      @return The standard port declarations.
      */
-    void writePortDeclarations(QTextStream& outputStream) const;
+    QString createMainPorts(QString const& indentation) const;
 
     /*!
      *  Writes a single port declarations.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] indentation     The parameter indentation.
      *      @param [in] portType        Type of the port.
      *      @param [in] portName        Name of the port.
      *      @param [in] portSize        Size of the port.
-     */
-    void writePort(QTextStream& outputStream, QString const& portType, QString const& portName,
-        QString const& portSize = QLatin1String("")) const;
-
-    /*!
-     *  Writes register port declarations.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @return The created port row.
      */
-    void writeRegisterPortDeclarations(QTextStream& outputStream) const;
+    QString createPort(QString const& indentation, QString const& portType, QString const& portName,
+        QString const& portSize = QLatin1String("")) const;
 
     /*!
      *  Checks if a field port should be an input port.
@@ -178,141 +219,173 @@ private:
     bool fieldPortIsOutput(AccessTypes::Access const& fieldAccess) const;
 
     /*!
-     *  Gets the indentation to use.
+     *  Gets the additional indentation to use.
      *
-     *      @param [in] depth   Depth of the indentation.
+     *      @param [in] indentation     The template indentation.
+     *      @param [in] depth           Depth of the additional indentation.
      *
-     *      @return The indentation to use.
+     *      @return The additional indentation to use.
      */
-    QString indentation(int depth = 1) const;
+    QString additionalIndentation(QString const& indentation, int const& depth = 1) const;
 
     /*!
-     *  Writes local parameters.
+     *  Create local parameters.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeLocalParameters(QTextStream& outputStream) const;
+    void createLocalParameters(QString& registerTemplate) const;
 
     /*!
-     *  Writes register data.
+     *  Creates the register data.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeRegisterData(QTextStream& outputStream) const;
+    void createRegisterData(QString& registerTemplate) const;
 
     /*!
-     *  Writes field data.
+     *  Creates item data.
      *
-     *      @param [in] outputStream    The output to write to.
-     */
-    void writeFieldData(QTextStream& outputStream) const;
-
-    /*!
-     *  Writes item data.
-     *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] indentation     The template indentation.
      *      @param [in] width           Width of the item.
      *      @param [in] dataName        Name of the data.
+     *
+     *      @return The created item data row.
      */
-    void writeItemData(QTextStream& outputStream, QString const& width, QString const& dataName) const;
+    QString createItemData(QString const& indentation, QString const& width, QString const& dataName) const;
 
     /*!
-     *  Writes local parameters of fields contained within the selected register.
+     *  Creates local parameters of fields contained within the selected register.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] componentRegister   Register containing the fields.
+     *
+     *      @return List of local field parameter rows of the selected register.
      */
-    void writeLocalFieldParameters(QTextStream& outputStream, QSharedPointer<MetaRegister> componentRegister)
-        const;
+    QStringList createLocalFieldParameters(QString const& indentation,
+        QSharedPointer<MetaRegister> componentRegister) const;
 
     /*!
-     *  Writes control field register.
+     *  Creates control field registers.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeControlRegisters(QTextStream& outputStream) const;
+    void createControlRegisters(QString& registerTemplate) const;
 
     /*!
-     *  Writes the FF line.
+     *  Creates the FF line.
      *
-     *      @param [in] outputStream    The output to write to.
+     *      @param [in] indentation     The template indentation.
+     *      @param [in] lineName        Name of the FF line.
+     *
+     *      @return The created FF row.
      */
-    void writeFFLine(QTextStream& outputStream) const;
+    QString createFFLine(QString const& indentation, QString const& lineName) const;
 
     /*!
-     *  Writes a begin line for the FF line.
+     *  Creates a begin line.
      *
-     *      @param [in] outputStream        The output to write to.
-     *      @param [in] lineName            Name of the FF.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
-     */
-    void writeRegisterBeginLine(QTextStream& outputStream, QString const& lineName, int& intendationCount) const;
-
-    /*!
-     *  Writes a begin line.
      *
-     *      @param [in] outputStream        The output to write to.
-     *      @param [in] intendationCount    Current depth of the indentation.
+     *      @return The created begin row.
      */
-    void writeBeginLine(QTextStream& outputStream, int& indentationCount) const;
+    QString createBeginLine(QString const& indentation, int& indentationCount) const;
 
     /*!
      *  Writes an end line.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created end row.
      */
-    void writeEndLine(QTextStream& outputStream, int& indentationCount) const;
+    QString createEndLine(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Writes a reset condition.
+     *  Creates a reset condition.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
      *      @param [in] isControl           Checks whether the condition is for control or status registers.
+     *
+     *      @return The created reset condition.
      */
-    void writeResetCondition(QTextStream& outputStream, int& indentationCount, bool isControl) const;
+    QString createResetCondition(QString const& indentation, int& indentationCount, bool isControl) const;
 
     /*!
-     *  Writes resets for registers.
+     *  Creates resets for registers.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
      *      @param [in] isControl           Checks whether the condition is for control or status registers.
+     *
+     *      @return The created register reset rows.
      */
-    void writeResetRegisters(QTextStream& outputStream, int& indentationCount, bool isControl) const;
+    QString createResetRegisters(QString const& indentation, int& indentationCount, bool isControl) const;
 
     /*!
-     *  Writes write not read condition.
+     *  Creates write not read condition.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created write not read condition row.
      */
-    void writeWriteNotReadCondition(QTextStream& outputStream, int& indentationCount) const;
+    QString createWriteNotReadCondition(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Writes write not read actions for field registers.
+     *  Creates write not read actions for field registers.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created write not read register rows.
      */
-    void writeWriteNotReadRegisters(QTextStream& outputStream, int& indentationCount) const;
+    QString createWriteNotReadRegisters(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Writes a case start line.
+     *  Creates a case start line.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created case start row.
      */
-    void writeCaseStartLine(QTextStream& outputStream, int& indentationCount) const;
+    QString createCaseStartLine(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Writes a case end line.
+     *  Creates a case end line.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created case end row.
      */
-    void writeCaseEndLine(QTextStream& outputStream, int& indentationCount) const;
+    QString createCaseEndLine(QString const& indentation, int& indentationCount) const;
+
+    /*!
+     *  Creates a register address line.
+     *
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return The created register address row.
+     */
+    QString createRegisterAddressLine(QString const& indentation, int& indentationCount,
+        QSharedPointer<MetaRegister> componentRegister) const;
+
+    /*!
+     *  Creates a register address line.
+     *
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     *      @param [in] componentRegister   The selected register.
+     *
+     *      @return The created register address row.
+     */
+    QString createFieldReset(QString const& indentation, int& indentationCount,
+        QSharedPointer<MetaRegister> componentRegister, MetaField const& field) const;
 
     /*!
      *  Gets a list of the output fields of the selected register.
@@ -333,97 +406,124 @@ private:
     QVector<MetaField> getInputFields(QSharedPointer<MetaRegister> componentRegister) const;
 
     /*!
-     *  Writes status field registers.
+     *  Creates status field registers.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeStatusRegisters(QTextStream& outputStream) const;
+    void createStatusRegisters(QString& registerTemplate) const;
 
     /*!
-     *  Writes the changes done to status registers.
+     *  Creates the changes done to status registers.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created status register change rows.
      */
-    void writeStatusRegisterChange(QTextStream& outputStream, int& indentationCount) const;
+    QString createStatusRegisterChange(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Writes a status register input.
+     *  Creates the else row.
      *
-     *      @param [in] outputStream        The output to write to.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created else row.
      */
-    void writeStatusRegisterInput(QTextStream& outputStream, int& indentationCount) const;
+    QString createElseString(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Write the always comb for read logic.
+     *  Creates a status register input.
      *
-     *      @param [in] outputStream    The output to write into.
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created status register input rows.
      */
-    void writeReadLogicComb(QTextStream& outputStream) const;
+    QString createStatusRegisterInput(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Write the comb line.
+     *  Creates the always comb for read logic.
      *
-     *      @param [in] outputStream        The output to write into.
-     *      @param [in] indentationCount    Current depth of the indentation.
+     *      @param [in] registerTemplate    The register template to write to.
      */
-    void writeCombLine(QTextStream& outputStream, int& indentationCount) const;
+    void createReadLogicComb(QString& registerTemplate) const;
 
     /*!
-     *  Write a line for setting data to 0.
+     *  Create the comb line.
      *
-     *      @param [in] outputStream        The output to write into.
-     *      @param [in] indentationCount    Current depth of the indentation.
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     *      @param [in] lineName            Name of the comb line.
+     *
+     *      @return The created comb row.
+     */
+    QString createCombLine(QString const& indentation, int& indentationCount, QString const& lineName) const;
+
+    /*!
+     *  Create a line for setting data to 0.
+     *
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
      *      @param [in] dataName            Name of the data.
+     *
+     *      @return The created data zero row.
      */
-    void writeDataZeroLine(QTextStream& outputStream, int& indentationCount, QString const& dataName) const;
+    QString createDataZeroLine(QString const& indentation, int& indentationCount, QString const& dataName) const;
 
     /*!
-     *  Write the read logic registers.
+     *  Create the read logic registers.
      *
-     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentation         The template indentation.
+     *      @param [in] intendationCount    Current depth of the indentation.
+     *
+     *      @return The created read logic register rows.
+     */
+    QString createReadLogicRegisters(QString const& indentation, int& indentationCount) const;
+
+    /*!
+     *  Create the always comb for construct data.
+     *
+     *      @param [in] registerTemplate    The register template to write to.
+     */
+    void createConstructComb(QString& registerTemplate) const;
+
+    /*!
+     *  Create the assign register data to zero lines.
+     *
+     *      @param [in] indentation         The template indentation.
      *      @param [in] indentationCount    Current depth of the indentation.
+     *
+     *      @return The created register data zero rows.
      */
-    void writeReadLogicRegisters(QTextStream& outputStream, int& indentationCount) const;
+    QString createRegisterDataZeroLines(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Write the always comb for construct data.
+     *  Create the register construct data.
      *
-     *      @param [in] outputStream    The output to write into.
-     */
-    void writeConstructComb(QTextStream& outputStream) const;
-
-    /*!
-     *  Write the register data to zero.
-     *
-     *      @param [in] outputStream        The output to write into.
+     *      @param [in] indentation         The template indentation.
      *      @param [in] indentationCount    Current depth of the indentation.
+     *
+     *      @return The created register construct data rows.
      */
-    void writeRegisterDataZeroLines(QTextStream& outputStream, int& indentationCount) const;
+    QString createRegisterConstructData(QString const& indentation, int& indentationCount) const;
 
     /*!
-     *  Write the register construct data.
+     *  Create the always comb for drive outputs.
      *
-     *      @param [in] outputStream        The output to write into.
+     *      @param [in] registerTemplate    The register template to write to.
+     */
+    void createDriveOutputsComb(QString& registerTemplate) const;
+
+    /*!
+     *  Create the drive outputs.
+     *
+     *      @param [in] indentation         The template indentation.
      *      @param [in] indentationCount    Current depth of the indentation.
-     */
-    void writeRegisterConstructData(QTextStream& outputStream, int& indentationCount) const;
-
-    /*!
-     *  Write the always comb for drive outputs.
      *
-     *      @param [in] outputStream    The output to write into.
+     *      @return The created drive output rows.
      */
-    void writeDriveOutputsComb(QTextStream& outputStream) const;
-
-    /*!
-     *  Write the drive outputs.
-     *
-     *      @param [in] outputStream        The output to write into.
-     *      @param [in] indentationCount    Current depth of the indentation.
-     */
-    void writeOutputControls(QTextStream& outputStream, int& indentationCount) const;
+    QString createOutputControls(QString const& indentation, int& indentationCount) const;
 
     /*!
      *  Get the data name of a selected register.

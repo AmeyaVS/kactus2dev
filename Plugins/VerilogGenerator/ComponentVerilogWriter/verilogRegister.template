@@ -1,0 +1,23 @@
+module <moduleName>
+ #(
+	<parameters>
+)
+(
+	<ports>
+);
+
+	<localParameters>
+
+	<logicRegisters>
+
+	<controlRegisterFFs>
+
+	<statusRegisterFFs>
+
+	<readLogicComb>
+
+	<constructDataComb>
+
+	<driveOutputsComb>
+
+endmodule

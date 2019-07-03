@@ -15,8 +15,35 @@
 
 #include <IPXACTmodels/Component/Component.h>
 
+#include <QFile>
+#include <QRegularExpression>
+
 namespace
 {
+    QString const MODULENAME_TEMPLATE = QLatin1String("<moduleName>");
+    QString const PARAMETERS_TEMPLATE = QLatin1String("<parameters>");
+    QString const PORTS_TEMPLATE = QLatin1String("<ports>");
+
+    QString const LOCALPARAMETERS_TEMPLATE = QLatin1String("<localParameters>");
+    QString const LOGICREGISTERS_TEMPLATE = QLatin1String("<logicRegisters>");
+    
+    QString const CONTROLREGISTERSFFS_TEMPLATE = QLatin1String("<controlRegisterFFs>");
+    QString const STATUSREGISTERSFFS_TEMPLATE = QLatin1String("<statusRegisterFFs>");
+
+    QString const READLOGICCOMB_TEMPLATE = QLatin1String("<readLogicComb>");
+    QString const CONSTRUCTDATACOMB_TEMPLATE = QLatin1String("<constructDataComb>");
+    QString const DRIVEOUTPUTSCOMB_TEMPLATE = QLatin1String("<driveOutputsComb>");
+
+    QString const ONELINE = QLatin1String("\n");
+    QString const TWOLINE = ONELINE + ONELINE;
+    QString const ONELINECOMBINATION = QLatin1String(",") + ONELINE;
+    QString const TWOLINECOMBINATION = ONELINECOMBINATION + ONELINE;
+    QString const LINEEND = QLatin1Char(';');
+
+    QString const WHITESPACEPATTERN = QLatin1String("\\s");
+    QString const SPACEPATTERN = QLatin1String("^ +");
+    QString const TABPATTERN = QLatin1String("^\\t");
+
     QString const MAINDATAWIDTH_STRING = QLatin1String("DATA_WIDTH");
     QString const MAINADDRESSWIDTH_STRING = QLatin1String("ADDR_WIDTH");
 
@@ -118,17 +145,36 @@ void ComponentRegisterVerilogWriter::write(QTextStream& outputStream) const
         return;
     }
 
-    writeModuleDeclaration(outputStream);
-    writeLocalParameters(outputStream);
-    writeRegisterData(outputStream);
-    writeControlRegisters(outputStream);
-    writeStatusRegisters(outputStream);
+    QFile templateFile("./Plugins/VerilogGenerator/ComponentVerilogWriter/verilogRegister.template");
+    QString registerTemplate("");
+    if (templateFile.open(QIODevice::ReadOnly))
+    {
+        QTextStream templateStream(&templateFile);
+        registerTemplate = templateStream.readAll();
+        templateFile.close();
+    }
+    else
+    {
+        return;
+    }
 
-    writeReadLogicComb(outputStream);
-    writeConstructComb(outputStream);
-    writeDriveOutputsComb(outputStream);
+    createModuleName(registerTemplate);
 
-	writeModuleEnd(outputStream);
+    createParameters(registerTemplate);
+    
+    createPortDeclarations(registerTemplate);
+    
+    createLocalParameters(registerTemplate);
+    createRegisterData(registerTemplate);
+
+    createControlRegisters(registerTemplate);
+    createStatusRegisters(registerTemplate);
+
+    createReadLogicComb(registerTemplate);
+    createConstructComb(registerTemplate);
+    createDriveOutputsComb(registerTemplate);
+
+    outputStream << registerTemplate;
 }
 
 //-----------------------------------------------------------------------------
@@ -136,86 +182,147 @@ void ComponentRegisterVerilogWriter::write(QTextStream& outputStream) const
 //-----------------------------------------------------------------------------
 bool ComponentRegisterVerilogWriter::nothingToWrite() const
 {
-    return component_.isNull();
+    return component_.isNull() || component_->getRegisters()->isEmpty();
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeModuleDeclaration()
+// Function: ComponentRegisterVerilogWriter::createModuleName()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeModuleDeclaration(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createModuleName(QString& output) const
 {
-    outputStream << "module " << registerModuleName_;
-
-    writeParameterDeclarations(outputStream);
-    writePortDeclarations(outputStream);
-
-    outputStream << endl;
+    output.replace(MODULENAME_TEMPLATE, registerModuleName_);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeParameterDeclarations()
+// Function: ComponentRegisterVerilogWriter::createParameters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeParameterDeclarations(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createParameters(QString& output) const
 {
-    if (component_->getRegisters()->isEmpty())
+    QString expressionPattern = WHITESPACEPATTERN + PARAMETERS_TEMPLATE;
+    QString parameterPattern = getPatternInTemplate(expressionPattern, output);
+    if (parameterPattern.isEmpty())
     {
         return;
     }
 
-    outputStream << endl << " #(" << endl;
+    QString indentation = getIndentation(parameterPattern);
 
-    writeMainParameters(outputStream);
+    QStringList parameters;
+    parameters.append(createMainParameters(indentation));
+    parameters.append(createRegisterParameters(indentation));
 
-    outputStream << endl;
+    QString completeParameters = parameters.join(TWOLINECOMBINATION);
+    output.replace(parameterPattern, completeParameters);
+}
 
-    QSharedPointer<MetaRegister> lastRegister = component_->getRegisters()->last();
-    for (auto const componentRegister : *component_->getRegisters())
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createMainParameters()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createMainParameters(QString const& indentation) const
+{
+    QStringList mainParameters;
+
+    mainParameters.append(createParameter(indentation, PARAMETER_STRING, MAINDATAWIDTH_STRING, dataWidth_));
+    mainParameters.append(createParameter(indentation, PARAMETER_STRING, MAINADDRESSWIDTH_STRING, addressWidth_));
+
+    return mainParameters.join(ONELINECOMBINATION);
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createRegisterParameters()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createRegisterParameters(QString const& indentation) const
+{
+    QStringList registerParameters;
+    for (auto componentRegister : *component_->getRegisters())
     {
-        writeSingleRegisterParameters(outputStream, componentRegister);
-
-        if (componentRegister != lastRegister)
-        {
-            outputStream << QLatin1Char(',');
-            outputStream << endl;
-        }
-
-        outputStream << endl;
+        registerParameters.append(getSingleRegisterParameters(indentation, componentRegister));
     }
 
-    outputStream << ")" << endl;
+    return registerParameters.join(TWOLINECOMBINATION);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeMainParameters()
+// Function: ComponentRegisterVerilogWriter::getPatternInTemplate()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeMainParameters(QTextStream& outputStream) const
+QString ComponentRegisterVerilogWriter::getPatternInTemplate(QString const& expressionPattern,
+    QString const& templateContents) const
 {
-    writeParameter(outputStream, PARAMETER_STRING, MAINDATAWIDTH_STRING, dataWidth_);
-    outputStream << QLatin1Char(',') << endl;
+    QRegularExpression registerParameterExpression(expressionPattern);
+    QRegularExpressionMatch registerParameterMatch = registerParameterExpression.match(templateContents);
+    if (registerParameterMatch.hasMatch())
+    {
+        return registerParameterMatch.captured();
+    }
 
-    writeParameter(outputStream, PARAMETER_STRING, MAINADDRESSWIDTH_STRING, addressWidth_);
-    outputStream << QLatin1Char(',') << endl;
+    return QString("");
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeSingleRegister()
+// Function: ComponentRegisterVerilogWriter::getIndentation()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeSingleRegisterParameters(QTextStream& outputStream,
+QString ComponentRegisterVerilogWriter::getIndentation(QString const& expressionPattern) const
+{
+    int indentationCount = 0;
+
+    QRegularExpression spaceExpression(SPACEPATTERN);
+    QRegularExpressionMatch spaceMatch = spaceExpression.match(expressionPattern);
+    if (spaceMatch.hasMatch())
+    {
+        indentationCount = spaceMatch.captured().size();
+    }
+    else
+    {
+        QRegularExpression tabExpression(TABPATTERN);
+        QRegularExpressionMatch tabMatch = tabExpression.match(expressionPattern);
+        if (tabMatch.hasMatch())
+        {
+            indentationCount = tabMatch.captured().size() * 4;
+        }
+    }
+
+    QString indendation = QLatin1String(" ");
+    indendation = indendation.repeated(indentationCount);
+
+    return indendation;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::getSingleRegisterParameters()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::getSingleRegisterParameters(QString const& indentation,
     QSharedPointer<MetaRegister> componentRegister) const
 {
-    QString registerName = componentRegister->name_;
+    QStringList registerParameters;
 
-    writeParameter(outputStream, PARAMETER_STRING, getRegisterSize(componentRegister), componentRegister->size_);
-    outputStream << QLatin1Char(',') << endl;
-    writeParameter(
-        outputStream, PARAMETER_STRING, getRegisterOffset(componentRegister), componentRegister->offset_);
+    registerParameters.append(createParameter(
+        indentation, PARAMETER_STRING, getRegisterSize(componentRegister), componentRegister->size_));
+    registerParameters.append(createParameter(
+        indentation, PARAMETER_STRING, getRegisterOffset(componentRegister), componentRegister->offset_));
 
     if (!componentRegister->fields_.isEmpty())
     {
-        outputStream << QLatin1Char(',') << endl;
-
-        writeRegisterFieldParameters(outputStream, componentRegister);
+        registerParameters.append(createRegisterFieldParameters(indentation, componentRegister));
     }
+
+    return registerParameters.join(ONELINECOMBINATION);
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createParameter()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createParameter(QString const& indentation, QString const& parameterType,
+    QString const& parameterName, QString const& parameterValue, bool endLine) const
+{
+    QString parameterDeclaration = indentation + parameterType.leftJustified(39) + parameterName.leftJustified(16)
+        + QLatin1String(" = ") + parameterValue;
+
+    if (endLine)
+    {
+        parameterDeclaration += LINEEND;
+    }
+
+    return parameterDeclaration;
 }
 
 //-----------------------------------------------------------------------------
@@ -235,78 +342,51 @@ QString ComponentRegisterVerilogWriter::getRegisterOffset(QSharedPointer<MetaReg
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeParameter()
+// Function: ComponentRegisterVerilogWriter::getRegisterFieldParameters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeParameter(QTextStream& outputStream, QString const& parameterType,
-    QString const& parameterName, QString const& parameterValue) const
-{
-    QString parameterDeclaration =
-        parameterType.leftJustified(39) + parameterName.leftJustified(16) + QLatin1String(" = ") + parameterValue;
-
-    outputStream << indentation() << parameterDeclaration;
-}
-
-//-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterFieldParameters()
-//-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterFieldParameters(QTextStream& outputStream,
+QStringList ComponentRegisterVerilogWriter::createRegisterFieldParameters(QString const& indentation,
     QSharedPointer<MetaRegister> componentRegister) const
 {
-    QString registerName = componentRegister->name_;
+    QStringList fieldParameters;
+
     for (int i = 0; i < componentRegister->fields_.size(); ++i)
     {
         MetaField const& field = componentRegister->fields_.at(i);
         QString fieldName = getCombinedRegisterFieldName(componentRegister, field);
 
-        writeParameter(outputStream, PARAMETER_STRING, getFieldBitOffset(fieldName), field.offset_);
-        outputStream << QLatin1Char(',') << endl;
-
-        writeParameter(outputStream, PARAMETER_STRING, getFieldWidth(fieldName), field.width_);
-
-        if (i < componentRegister->fields_.size() - 1)
-        {
-            outputStream << QLatin1Char(',') << endl;
-        }
+        fieldParameters.append(
+            createParameter(indentation, PARAMETER_STRING, getFieldBitOffset(fieldName), field.offset_));
+        fieldParameters.append(
+            createParameter(indentation, PARAMETER_STRING, getFieldWidth(fieldName), field.width_));
     }
+
+    return fieldParameters;
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writePortDeclarations()
+// Function: ComponentRegisterVerilogWriter::createPortDeclarations()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writePortDeclarations(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createPortDeclarations(QString& registerTemplate) const
 {
-    outputStream << QLatin1Char('(') << endl;
+    QString expressionPattern = WHITESPACEPATTERN + PORTS_TEMPLATE;
+    QString portPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (portPattern.isEmpty())
+    {
+        return;
+    }
 
-    writePort(outputStream, INPUT_STRING, CLK_STRING);
-    outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, RSTN_STRING);
-    outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, ADDRESS_STRING, MAINADDRESSWIDTH_STRING);
-    outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, WDATA_STRING, MAINDATAWIDTH_STRING);
-    outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, INPUT_STRING, WRITENOTREAD_STRING);
-    outputStream << QLatin1Char(',') << endl;
-    writePort(outputStream, OUTPUT_STRING, RDATA_STRING, MAINDATAWIDTH_STRING);
+    QString indentation = getIndentation(portPattern);
+    QStringList ports;
 
-    writeRegisterPortDeclarations(outputStream);
+    ports.append(createMainPorts(indentation));
 
-    outputStream << endl << QLatin1String(");") << endl;
-}
-
-//-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterPortDeclarations()
-//-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterPortDeclarations(QTextStream& outputStream) const
-{
     for (auto componentRegister : *component_->getRegisters())
     {
+        QStringList registerPorts;
+
         for (auto registerField : componentRegister->fields_)
         {
-            outputStream << QLatin1Char(',') << endl;
-
             QString portType("");
-
             AccessTypes::Access fieldAccess = registerField.access_;
             if (fieldPortIsInput(fieldAccess))
             {
@@ -322,9 +402,51 @@ void ComponentRegisterVerilogWriter::writeRegisterPortDeclarations(QTextStream& 
             QString portSize = getFieldWidth(combiFieldName);
             QString portName = combiFieldName + QLatin1Char('_') + portType;
 
-            writePort(outputStream, portType, portName, portSize);
+            registerPorts.append(createPort(indentation, portType, portName, portSize));
         }
+
+        ports.append(registerPorts.join(ONELINECOMBINATION));
     }
+
+    registerTemplate.replace(portPattern, ports.join(TWOLINECOMBINATION));
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createMainPorts()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createMainPorts(QString const& indentation) const
+{
+    QStringList mainPorts;
+    mainPorts.append(createPort(indentation, INPUT_STRING, CLK_STRING));
+    mainPorts.append(createPort(indentation, INPUT_STRING, RSTN_STRING));
+    mainPorts.append(createPort(indentation, INPUT_STRING, ADDRESS_STRING, MAINADDRESSWIDTH_STRING));
+    mainPorts.append(createPort(indentation, INPUT_STRING, WDATA_STRING, MAINDATAWIDTH_STRING));
+    mainPorts.append(createPort(indentation, INPUT_STRING, WRITENOTREAD_STRING));
+    mainPorts.append(createPort(indentation, OUTPUT_STRING, RDATA_STRING, MAINDATAWIDTH_STRING));
+
+    return mainPorts.join(ONELINECOMBINATION);
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createPort()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createPort(QString const& indentation, QString const& portType,
+    QString const& portName, QString const& portSize) const
+{
+    QString portDeclaration = indentation + QLatin1String("<type> ") + portName;
+
+    QString widthDeclaration = "";
+    if (!portSize.isEmpty())
+    {
+        widthDeclaration = QLatin1Char('[') + portSize + QLatin1String("-1:0]");
+    }
+
+    QString portDefinition =
+        portType.leftJustified(6) + QLatin1Char(' ') + LOGIC_STRING + QLatin1Char(' ') + widthDeclaration;
+
+    portDeclaration.replace(QLatin1String("<type>"), portDefinition.leftJustified(38));
+
+    return portDeclaration;
 }
 
 //-----------------------------------------------------------------------------
@@ -354,61 +476,52 @@ QString ComponentRegisterVerilogWriter::getCombinedRegisterFieldName(
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writePort()
+// Function: ComponentRegisterVerilogWriter::additionalIndentation()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writePort(QTextStream& outputStream, QString const& portType,
-    QString const& portName, QString const& portSize) const
+QString ComponentRegisterVerilogWriter::additionalIndentation(QString const& indentation, int const& depth) const
 {
-    QString portDeclaration = QLatin1String("<type> ") + portName;
-
-    QString widthDeclaration = "";
-    if (!portSize.isEmpty())
+    QString indent = indentation;
+    if (indent.isEmpty())
     {
-        widthDeclaration = QLatin1Char('[') + portSize + QLatin1String("-1:0]");
+        indent = "    ";
     }
-
-    QString portDefinition =
-        portType.leftJustified(6) + QLatin1Char(' ') + LOGIC_STRING + QLatin1Char(' ') + widthDeclaration;
-
-    portDeclaration.replace(QLatin1String("<type>"), portDefinition.leftJustified(38));
-
-    outputStream << indentation() << portDeclaration;
-}
-
-//-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::indentation()
-//-----------------------------------------------------------------------------
-QString ComponentRegisterVerilogWriter::indentation(int depth /*= 1*/) const
-{
-    QString indent = "    ";
 
     return indent.repeated(depth);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeLocalParameters()
+// Function: ComponentRegisterVerilogWriter::createLocalParameters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeLocalParameters(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createLocalParameters(QString& registerTemplate) const
 {
-    for (int i = 0; i < component_->getRegisters()->size(); ++i)
+    QString expressionPattern = WHITESPACEPATTERN + LOCALPARAMETERS_TEMPLATE;
+    QString localParameterPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (localParameterPattern.isEmpty())
     {
-        QSharedPointer<MetaRegister> componentRegister = component_->getRegisters()->at(i);
+        return;
+    }
+
+    QString indentation = getIndentation(localParameterPattern);
+
+    QStringList localParameters;
+    for (auto componentRegister : *component_->getRegisters())
+    {
+        QStringList registerParameters;
 
         QString parameterName = getRegisterAddressName(componentRegister);
         QString registerAddress =
             getValueInBaseFormat(componentRegister->offset_, addressWidth_, addressWidth_.toULongLong(), 2);
 
-        writeParameter(outputStream, LOCALPARAMETER_STRING, parameterName, registerAddress);
+        registerParameters.append(
+            createParameter(indentation, LOCALPARAMETER_STRING, parameterName, registerAddress, true));
 
-        writeLocalFieldParameters(outputStream, componentRegister);
+        registerParameters.append(
+            createLocalFieldParameters(indentation, componentRegister).join(ONELINE));
 
-        if (i < component_->getRegisters()->size() - 1)
-        {
-            outputStream << QLatin1Char(',');
-        }
-
-        outputStream << endl << endl;
+        localParameters.append(registerParameters.join(ONELINE));
     }
+
+    registerTemplate.replace(localParameterPattern, localParameters.join(TWOLINE));
 }
 
 //-----------------------------------------------------------------------------
@@ -438,15 +551,15 @@ QString ComponentRegisterVerilogWriter::getValueInBaseFormat(QString const& valu
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeLocalFieldParameters()
+// Function: ComponentRegisterVerilogWriter::createLocalFieldParameters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeLocalFieldParameters(QTextStream& outputStream,
+QStringList ComponentRegisterVerilogWriter::createLocalFieldParameters(QString const& indentation,
     QSharedPointer<MetaRegister> componentRegister) const
 {
+    QStringList fieldParameters;
+
     for (auto registerField : componentRegister->fields_)
     {
-        outputStream << QLatin1Char(',') << endl;
-
         QString combiName = getFieldResetValueName(componentRegister, registerField);
         QString resetValue = registerField.resetValue_;
         if (!resetValue.contains(QLatin1Char('\'')))
@@ -454,8 +567,10 @@ void ComponentRegisterVerilogWriter::writeLocalFieldParameters(QTextStream& outp
             resetValue = getValueInBaseFormat(resetValue, registerField.width_, registerField.widthInt_, 16);
         }
 
-        writeParameter(outputStream, LOCALPARAMETER_STRING, combiName, resetValue);
+        fieldParameters.append(createParameter(indentation, LOCALPARAMETER_STRING, combiName, resetValue, true));
     }
+
+    return fieldParameters;
 }
 
 //-----------------------------------------------------------------------------
@@ -469,12 +584,21 @@ QString ComponentRegisterVerilogWriter::getFieldResetValueName(QSharedPointer<Me
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterData()
+// Function: ComponentRegisterVerilogWriter::createRegisterData()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterData(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createRegisterData(QString& registerTemplate) const
 {
-    QStringList registerNames;
+    QString expressionPattern = WHITESPACEPATTERN + LOGICREGISTERS_TEMPLATE;
+    QString logicRegistersPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (logicRegistersPattern.isEmpty())
+    {
+        return;
+    }
 
+    QString indentation = getIndentation(logicRegistersPattern);
+
+    QStringList fieldLogicalData;
+    QStringList registerNames;
     for (auto componentRegister : *component_->getRegisters())
     {
         registerNames.append(getRegisterDataName(componentRegister));
@@ -484,14 +608,18 @@ void ComponentRegisterVerilogWriter::writeRegisterData(QTextStream& outputStream
             QString fieldName = getCombinedRegisterFieldName(componentRegister, registerField);
             QString fieldWidth = getFieldWidth(fieldName);
 
-            writeItemData(outputStream, fieldWidth, getFieldRegisterName(componentRegister, registerField));
-            outputStream << QLatin1Char(';') << endl;
+            fieldLogicalData.append(
+                createItemData(indentation, fieldWidth, getFieldRegisterName(componentRegister, registerField)));
         }
     }
 
-    outputStream << endl;
-    writeItemData(outputStream, MAINDATAWIDTH_STRING, registerNames.join(", "));
-    outputStream << QLatin1Char(';') << endl << endl;
+    QStringList finalLogicalData;
+    finalLogicalData.append(fieldLogicalData.join(ONELINE));
+    finalLogicalData.append(
+        createItemData(indentation, MAINDATAWIDTH_STRING, registerNames.join(QLatin1String(", "))));
+
+    QString combinedData = finalLogicalData.join(TWOLINE);
+    registerTemplate.replace(logicRegistersPattern, combinedData);
 }
 
 //-----------------------------------------------------------------------------
@@ -505,94 +633,102 @@ QString ComponentRegisterVerilogWriter::getFieldRegisterName(QSharedPointer<Meta
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeItemData()
+// Function: ComponentRegisterVerilogWriter::()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeItemData(QTextStream& outputStream, QString const& width,
+QString ComponentRegisterVerilogWriter::createItemData(QString const& indentation, QString const& width,
     QString const& dataName) const
 {
     QString dataRange = LOGIC_STRING + QLatin1String(" [") + width + QLatin1String("-1:0]");
-    QString dataDeclaration = dataRange.leftJustified(39) + dataName;
-
-    outputStream << indentation() << dataDeclaration;
+    return indentation + dataRange.leftJustified(39) + dataName + LINEEND;
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeControlRegisters()
+// Function: ComponentRegisterVerilogWriter::createControlRegisters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeControlRegisters(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createControlRegisters(QString& registerTemplate) const
 {
-    int indentationCount = 1;
+    QString expressionPattern = WHITESPACEPATTERN + CONTROLREGISTERSFFS_TEMPLATE;
+    QString controlFFsPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (controlFFsPattern.isEmpty())
+    {
+        return;
+    }
 
-    writeFFLine(outputStream);
-    writeRegisterBeginLine(outputStream, CONTROLREGISTERS_STRING, indentationCount);
-    writeResetCondition(outputStream, indentationCount, true);
-    writeWriteNotReadCondition(outputStream, indentationCount);
-    writeEndLine(outputStream, indentationCount);
+    QString indentation = getIndentation(controlFFsPattern);
 
-    outputStream << endl;
+    int additionalIndentationCount = 0;
+
+    QStringList controlFFs;
+    controlFFs.append(createFFLine(indentation, CONTROLREGISTERS_STRING));
+    controlFFs.append(createBeginLine(indentation, additionalIndentationCount));
+    controlFFs.append(createResetCondition(indentation, additionalIndentationCount, true));
+    controlFFs.append(createWriteNotReadCondition(indentation, additionalIndentationCount));
+    controlFFs.append(createEndLine(indentation, additionalIndentationCount));
+
+    QString finishedlControlFFs = controlFFs.join(ONELINE);
+    registerTemplate.replace(controlFFsPattern, finishedlControlFFs);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeFFLine()
+// Function: ComponentRegisterVerilogWriter::createFFLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeFFLine(QTextStream& outputStream) const
+QString ComponentRegisterVerilogWriter::createFFLine(QString const& indentation, QString const& lineName) const
 {
-    QString ffLine = ALWAYS_FF_STRING + QLatin1String("( ") + POSEDGE_STRING + QLatin1Char(' ') + CLK_STRING +
-        QLatin1String(" or ") + NEGEDGE_STRING + QLatin1Char(' ') + RSTN_STRING + QLatin1String(" )");
-
-    outputStream << indentation() << ffLine << QLatin1Char(' ');
+    return indentation + ALWAYS_FF_STRING + QLatin1String("( ") + POSEDGE_STRING + QLatin1Char(' ') + CLK_STRING +
+        QLatin1String(" or ") + NEGEDGE_STRING + QLatin1Char(' ') + RSTN_STRING + QLatin1String(" ) ") + lineName +
+        QLatin1Char(':');
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterBeginLine()
+// Function: ComponentRegisterVerilogWriter::createBeginLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterBeginLine(QTextStream& outputStream, QString const& lineName,
-    int& intendationCount) const
+QString ComponentRegisterVerilogWriter::createBeginLine(QString const& indentation, int& indentationCount) const
 {
-    outputStream << lineName << QLatin1String(": ") << endl;
-    writeBeginLine(outputStream, intendationCount);
-}
-
-//-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeBeginLine()
-//-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeBeginLine(QTextStream& outputStream, int& indentationCount) const
-{
-    outputStream << indentation(indentationCount) << BEGIN_STRING << endl;
+    QString beginLine = indentation + additionalIndentation(indentation, indentationCount) + BEGIN_STRING;
     indentationCount++;
+
+    return beginLine;
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeEndLine()
+// Function: ComponentRegisterVerilogWriter::createEndLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeEndLine(QTextStream& outputStream, int& indentationCount) const
+QString ComponentRegisterVerilogWriter::createEndLine(QString const& indentation, int& indentationCount) const
 {
     indentationCount--;
-    outputStream << indentation(indentationCount) << END_STRING << endl;
+    return indentation + additionalIndentation(indentation, indentationCount) + END_STRING;
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeResetCondition()
+// Function: ComponentRegisterVerilogWriter::createResetCondition()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeResetCondition(QTextStream& outputStream, int& indentationCount,
+QString ComponentRegisterVerilogWriter::createResetCondition(QString const& indentation, int& indentationCount,
     bool isControl) const
 {
-    QString resetCondition = IF_STRING + QLatin1String(" ( ") + RSTN_STRING + QLatin1Char(' ') +
-        EQUALCHECK_STRING + QLatin1Char(' ') + ZEROBITS_STRING + QLatin1String(" )");
+    QStringList resetCondition;
+    resetCondition.append(indentation + additionalIndentation(indentation, indentationCount) + IF_STRING +
+        QLatin1String(" ( ") + RSTN_STRING + QLatin1Char(' ') + EQUALCHECK_STRING + QLatin1Char(' ') +
+        ZEROBITS_STRING + QLatin1String(" )"));
 
-    outputStream << indentation(indentationCount) << resetCondition << endl;
+    indentationCount++;
 
-    writeBeginLine(outputStream, indentationCount);
-    writeResetRegisters(outputStream, indentationCount, isControl);
-    writeEndLine(outputStream, indentationCount);
+    resetCondition.append(createBeginLine(indentation, indentationCount));
+    resetCondition.append(createResetRegisters(indentation, indentationCount, isControl));
+    resetCondition.append(createEndLine(indentation, indentationCount));
+
+    indentationCount--;
+
+    return resetCondition.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeResetRegisters()
+// Function: ComponentRegisterVerilogWriter::createResetRegisters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeResetRegisters(QTextStream& outputStream, int& indentationCount,
+QString ComponentRegisterVerilogWriter::createResetRegisters(QString const& indentation, int& indentationCount,
     bool isControl) const
 {
+    QStringList resetRegisters;
+
     for (auto componentRegister : *component_->getRegisters())
     {
         for (auto field : componentRegister->fields_)
@@ -602,84 +738,119 @@ void ComponentRegisterVerilogWriter::writeResetRegisters(QTextStream& outputStre
 
             if ((isControl && fieldPortIsOutput(field.access_)) || (!isControl && fieldPortIsInput(field.access_)))
             {
-                outputStream << indentation(indentationCount) << fieldRegisterName << QLatin1String(" = ") <<
-                    fieldResetName << QLatin1Char(';') << endl;
+                resetRegisters.append(indentation + additionalIndentation(indentation, indentationCount) +
+                    fieldRegisterName + QLatin1String(" = ") + fieldResetName + LINEEND);
             }
         }
     }
+
+    return resetRegisters.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeWriteNotReadCondition()
+// Function: ComponentRegisterVerilogWriter::createWriteNotReadCondition()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeWriteNotReadCondition(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createWriteNotReadCondition(QString const& indentation,
+    int& indentationCount) const
 {
-    QString condition = ELSEIF_STRING + QLatin1String(" ( ") + WRITENOTREAD_STRING + QLatin1Char(')');
-    outputStream << indentation(indentationCount) << condition << endl;
+    QStringList writeNotReadCondition;
 
-    writeBeginLine(outputStream, indentationCount);
-    writeWriteNotReadRegisters(outputStream, indentationCount);
-    writeEndLine(outputStream, indentationCount);
+    writeNotReadCondition.append(indentation + additionalIndentation(indentation, indentationCount) +
+        ELSEIF_STRING + QLatin1String(" ( ") + WRITENOTREAD_STRING + QLatin1String(" )"));
+
+    indentationCount++;
+
+    writeNotReadCondition.append(createBeginLine(indentation, indentationCount));
+    writeNotReadCondition.append(createWriteNotReadRegisters(indentation, indentationCount));
+    writeNotReadCondition.append(createEndLine(indentation, indentationCount));
+    
+    indentationCount--;
+
+    return writeNotReadCondition.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeWriteNotReadRegisters()
+// Function: ComponentRegisterVerilogWriter::createWriteNotReadRegisters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeWriteNotReadRegisters(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createWriteNotReadRegisters(QString const& indentation,
+    int& indentationCount) const
 {
-    writeCaseStartLine(outputStream, indentationCount);
+    QStringList writeNotReadRegisters;
+
+    writeNotReadRegisters.append(createCaseStartLine(indentation, indentationCount));
 
     for (auto componentRegister : *component_->getRegisters())
     {
         QVector<MetaField> outputFields = getOutputFields(componentRegister);
         if (!outputFields.isEmpty())
         {
-            QString registerAddress = getRegisterAddressName(componentRegister);
-            outputStream << indentation(indentationCount) << registerAddress << QLatin1Char(':') << endl;
-            writeBeginLine(outputStream, indentationCount);
+            writeNotReadRegisters.append(
+                createRegisterAddressLine(indentation, indentationCount, componentRegister));
+            writeNotReadRegisters.append(createBeginLine(indentation, indentationCount));
 
             for (auto field : outputFields)
             {
-                QString fieldName = getCombinedRegisterFieldName(componentRegister, field);
-                QString fieldRegisterName = getFieldRegisterName(componentRegister, field);
-                QString fieldOffsetParameter = getFieldBitOffset(fieldName);
-                QString fieldWidthParameter = getFieldWidth(fieldName);
-
-                QString registerData = fieldRegisterName + QLatin1String(" = ") + WDATA_STRING + QLatin1Char('[') +
-                    fieldOffsetParameter + QLatin1Char('+') + fieldWidthParameter + QLatin1String("-1:") +
-                    fieldOffsetParameter + QLatin1String("];");
-
-                outputStream << indentation(indentationCount) << registerData << endl;
+                writeNotReadRegisters.append(
+                    createFieldReset(indentation, indentationCount, componentRegister, field));
             }
 
-            writeEndLine(outputStream, indentationCount);
+            writeNotReadRegisters.append(createEndLine(indentation, indentationCount));
         }
     }
 
-    writeCaseEndLine(outputStream, indentationCount);
+    writeNotReadRegisters.append(createCaseEndLine(indentation, indentationCount));
+
+    return writeNotReadRegisters.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeCaseStartLine()
+// Function: ComponentRegisterVerilogWriter::createRegisterAddressLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeCaseStartLine(QTextStream& outputStream, int& indentationCount) const
+QString ComponentRegisterVerilogWriter::createRegisterAddressLine(QString const& indentation,
+    int& indentationCount, QSharedPointer<MetaRegister> componentRegister) const
 {
-    outputStream << indentation(indentationCount) << CASE_STRING << QLatin1Char('(') << ADDRESS_STRING <<
-        QLatin1Char(')') << endl;
-
-    indentationCount++;
+    QString registerAddress = getRegisterAddressName(componentRegister);
+    return indentation + additionalIndentation(indentation, indentationCount) + registerAddress + QLatin1Char(':');
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeCaseEndLine()
+// Function: ComponentRegisterVerilogWriter::createFieldReset()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeCaseEndLine(QTextStream& outputStream, int& indentationCount) const
+QString ComponentRegisterVerilogWriter::createFieldReset(QString const& indentation, int& indentationCount,
+    QSharedPointer<MetaRegister> componentRegister, MetaField const& field) const
+{
+    QString fieldName = getCombinedRegisterFieldName(componentRegister, field);
+    QString fieldRegisterName = getFieldRegisterName(componentRegister, field);
+    QString fieldOffsetParameter = getFieldBitOffset(fieldName);
+    QString fieldWidthParameter = getFieldWidth(fieldName);
+
+    QString registerData = fieldRegisterName + QLatin1String(" = ") + WDATA_STRING + QLatin1Char('[') +
+        fieldOffsetParameter + QLatin1Char('+') + fieldWidthParameter + QLatin1String("-1:") +
+        fieldOffsetParameter + QLatin1String("];");
+
+    return indentation + additionalIndentation(indentation, indentationCount) + registerData;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createCaseStartLine()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createCaseStartLine(QString const& indentation, int& indentationCount)
+    const
+{
+    QString caseStart = indentation + additionalIndentation(indentation, indentationCount) + CASE_STRING +
+        QLatin1Char('(') + ADDRESS_STRING + QLatin1Char(')');
+    indentationCount++;
+
+    return caseStart;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createCaseEndLine()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createCaseEndLine(QString const& indentation, int& indentationCount) const
 {
     indentationCount--;
-
-    outputStream << indentation(indentationCount) << ENDCASE_STRING << endl;
+    return indentation + additionalIndentation(indentation, indentationCount) + ENDCASE_STRING;
 }
 
 //-----------------------------------------------------------------------------
@@ -721,40 +892,69 @@ QVector<MetaField> ComponentRegisterVerilogWriter::getInputFields(QSharedPointer
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeStatusRegisters()
+// Function: ComponentRegisterVerilogWriter::createStatusRegisters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeStatusRegisters(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createStatusRegisters(QString& registerTemplate) const
 {
-    int indentationCount = 1;
+    QString expressionPattern = WHITESPACEPATTERN + STATUSREGISTERSFFS_TEMPLATE;
+    QString statusFFsPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (statusFFsPattern.isEmpty())
+    {
+        return;
+    }
 
-    writeFFLine(outputStream);
-    writeRegisterBeginLine(outputStream, STATUSREGISTERS_STRING, indentationCount);
-    writeResetCondition(outputStream, indentationCount, false);
-    writeStatusRegisterChange(outputStream, indentationCount);
-    writeEndLine(outputStream, indentationCount);
+    QString indentation = getIndentation(statusFFsPattern);
 
-    outputStream << endl;
+    int additionalIndentationCount = 0;
+
+    QStringList statusFFs;
+    statusFFs.append(createFFLine(indentation, STATUSREGISTERS_STRING));
+    statusFFs.append(createBeginLine(indentation, additionalIndentationCount));
+    statusFFs.append(createResetCondition(indentation, additionalIndentationCount, false));
+    statusFFs.append(createStatusRegisterChange(indentation, additionalIndentationCount));
+    statusFFs.append(createEndLine(indentation, additionalIndentationCount));
+
+
+    QString finishedStatusFFs = statusFFs.join(ONELINE);
+    registerTemplate.replace(statusFFsPattern, finishedStatusFFs);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeStatusRegisterChange()
+// Function: ComponentRegisterVerilogWriter::createStatusRegisterChange()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeStatusRegisterChange(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createStatusRegisterChange(QString const& indentation,
+    int& indentationCount) const
 {
-    outputStream << indentation(indentationCount) << ELSE_STRING << endl;
+    QStringList statusChange;
+    statusChange.append(createElseString(indentation, indentationCount));
 
-    writeBeginLine(outputStream, indentationCount);
-    writeStatusRegisterInput(outputStream, indentationCount);
-    writeEndLine(outputStream, indentationCount);
+    statusChange.append(createBeginLine(indentation, indentationCount));
+    statusChange.append(createStatusRegisterInput(indentation, indentationCount));
+    statusChange.append(createEndLine(indentation, indentationCount));
+
+    indentationCount--;
+
+    return statusChange.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeStatusRegisterInput()
+// Function: ComponentRegisterVerilogWriter::createElseString()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeStatusRegisterInput(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createElseString(QString const& indentation, int& indentationCount) const
 {
+    QString elseString = indentation + additionalIndentation(indentation, indentationCount) + ELSE_STRING;
+    indentationCount++;
+    return elseString;
+}
+
+//-----------------------------------------------------------------------------
+// Function: ComponentRegisterVerilogWriter::createStatusRegisterInput()
+//-----------------------------------------------------------------------------
+QString ComponentRegisterVerilogWriter::createStatusRegisterInput(QString const& indentation,
+    int& indentationCount) const
+{
+    QStringList statusRegisters;
+
     for (auto componentRegister : *component_->getRegisters())
     {
         QVector<MetaField> inputFields = getInputFields(componentRegister);
@@ -765,13 +965,16 @@ void ComponentRegisterVerilogWriter::writeStatusRegisterInput(QTextStream& outpu
                 INPUT_STRING;
 
             QString registerData = fieldRegisterName + QLatin1String(" = ") + inputPortName + QLatin1Char(';');
-            outputStream << indentation(indentationCount) << registerData << endl;
+            statusRegisters.append(
+                indentation + additionalIndentation(indentation, indentationCount) + registerData);
         }
     }
+
+    return statusRegisters.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::getFieldBitOffsetName()
+// Function: ComponentRegisterVerilogWriter::getFieldBitOffset()
 //-----------------------------------------------------------------------------
 QString ComponentRegisterVerilogWriter::getFieldBitOffset(QString const& combinedName) const
 {
@@ -779,7 +982,7 @@ QString ComponentRegisterVerilogWriter::getFieldBitOffset(QString const& combine
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::getFieldWidthName()
+// Function: ComponentRegisterVerilogWriter::getFieldWidth()
 //-----------------------------------------------------------------------------
 QString ComponentRegisterVerilogWriter::getFieldWidth(QString const& combinedName) const
 {
@@ -787,109 +990,147 @@ QString ComponentRegisterVerilogWriter::getFieldWidth(QString const& combinedNam
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeReadLogicComb()
+// Function: ComponentRegisterVerilogWriter::createReadLogicComb()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeReadLogicComb(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createReadLogicComb(QString& registerTemplate) const
 {
-    int indentationCount = 1;
+    QString expressionPattern = WHITESPACEPATTERN + READLOGICCOMB_TEMPLATE;
+    QString readLogicPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (readLogicPattern.isEmpty())
+    {
+        return;
+    }
 
-    writeCombLine(outputStream, indentationCount);
-    outputStream << indentation(indentationCount);
-    writeRegisterBeginLine(outputStream, READLOGIC_STRING, indentationCount);
-    writeDataZeroLine(outputStream, indentationCount, RDATA_STRING);
+    QString indentation = getIndentation(readLogicPattern);
 
-    writeReadLogicRegisters(outputStream, indentationCount);
+    int additionalIndentationCount = 0;
 
-    writeEndLine(outputStream, indentationCount);
-    outputStream << endl;
+    QStringList readLogic;
+    readLogic.append(createCombLine(indentation, additionalIndentationCount, READLOGIC_STRING));
+    readLogic.append(createBeginLine(indentation, additionalIndentationCount));
+    readLogic.append(createDataZeroLine(indentation, additionalIndentationCount, RDATA_STRING));
+    readLogic.append(createReadLogicRegisters(indentation, additionalIndentationCount));
+    readLogic.append(createEndLine(indentation, additionalIndentationCount));
+
+    additionalIndentationCount--;
+
+    QString finishedReadLogic = readLogic.join(ONELINE);
+    registerTemplate.replace(readLogicPattern, finishedReadLogic);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeCombLine()
+// Function: ComponentRegisterVerilogWriter::createCombLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeCombLine(QTextStream& outputStream, int& indentationCount) const
+QString ComponentRegisterVerilogWriter::createCombLine(QString const& indentation, int& indentationCount,
+    QString const& lineName) const
 {
-    outputStream << indentation(indentationCount) << ALWAYSCOMB_STRING << endl;
+    QString combLine = indentation + additionalIndentation(indentation, indentationCount) + ALWAYSCOMB_STRING +
+        QLatin1Char(' ') + lineName + QLatin1Char(':');
     indentationCount++;
+
+    return combLine;
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeDataZeroLine()
+// Function: ComponentRegisterVerilogWriter::createDataZeroLine()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeDataZeroLine(QTextStream& outputStream, int& indentationCount,
+QString ComponentRegisterVerilogWriter::createDataZeroLine(QString const& indentation, int& indentationCount,
     QString const& dataName) const
 {
-    QString dataString = dataName + QLatin1String(" = 0;");
-    outputStream << indentation(indentationCount) << dataString << endl;
+    return indentation + additionalIndentation(indentation, indentationCount) + dataName + QLatin1String(" = 0;");
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeReadLogicRegisters()
+// Function: ComponentRegisterVerilogWriter::createReadLogicRegisters()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeReadLogicRegisters(QTextStream& outputStream, int& indentationCount)
+QString ComponentRegisterVerilogWriter::createReadLogicRegisters(QString const& indentation, int& indentationCount)
     const
 {
-    writeCaseStartLine(outputStream, indentationCount);
+    QStringList readLogicRegisters;
+    readLogicRegisters.append(createCaseStartLine(indentation, indentationCount));
 
     for (QSharedPointer<MetaRegister> currentRegister : *component_->getRegisters())
     {
-        QString registerAddress = getRegisterAddressName(currentRegister);
-        outputStream << indentation(indentationCount) << registerAddress << QLatin1Char(':') << endl;
-        writeBeginLine(outputStream, indentationCount);
+        QString registerAddress = indentation + additionalIndentation(indentation, indentationCount) +
+            getRegisterAddressName(currentRegister) + QLatin1Char(':');
+        readLogicRegisters.append(registerAddress);
 
-        outputStream << indentation(indentationCount) << RDATA_STRING << QLatin1String(" = ") <<
-            getRegisterDataName(currentRegister) << QLatin1Char(';') << endl;
+        readLogicRegisters.append(createBeginLine(indentation, indentationCount));
 
-        writeEndLine(outputStream, indentationCount);
+        QString dataAssign = indentation + additionalIndentation(indentation, indentationCount) + RDATA_STRING +
+            QLatin1String(" = ") + getRegisterDataName(currentRegister) + QLatin1Char(';');
+        readLogicRegisters.append(dataAssign);
+
+        readLogicRegisters.append(createEndLine(indentation, indentationCount));
     }
 
-    writeCaseEndLine(outputStream, indentationCount);
+    readLogicRegisters.append(createCaseEndLine(indentation, indentationCount));
 
-    outputStream << endl;
+    return readLogicRegisters.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeConstructComb()
+// Function: ComponentRegisterVerilogWriter::createConstructComb()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeConstructComb(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createConstructComb(QString& registerTemplate) const
 {
-    int indentationCount = 1;
+    QString expressionPattern = WHITESPACEPATTERN + CONSTRUCTDATACOMB_TEMPLATE;
+    QString constructPattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (constructPattern.isEmpty())
+    {
+        return;
+    }
 
-    writeCombLine(outputStream, indentationCount);
-    outputStream << indentation(indentationCount);
-    writeRegisterBeginLine(outputStream, CONSTRUCTDATA_STRING, indentationCount);
+    QString indentation = getIndentation(constructPattern);
 
-    writeRegisterDataZeroLines(outputStream, indentationCount);
-    writeRegisterConstructData(outputStream, indentationCount);
+    int additionalIndentationCount = 0;
 
-    writeEndLine(outputStream, indentationCount);
+    QStringList construct;
+    construct.append(createCombLine(indentation, additionalIndentationCount, CONSTRUCTDATA_STRING));
+    construct.append(createBeginLine(indentation, additionalIndentationCount));
 
-    outputStream << endl;
+    QStringList constructRegisterData;
+    constructRegisterData.append(createRegisterDataZeroLines(indentation, additionalIndentationCount));
+    constructRegisterData.append(createRegisterConstructData(indentation, additionalIndentationCount));
+    construct.append(constructRegisterData.join(TWOLINE));
+
+    construct.append(createEndLine(indentation, additionalIndentationCount));
+
+    additionalIndentationCount--;
+
+    QString finishedConstruct = construct.join(ONELINE);
+    registerTemplate.replace(constructPattern, finishedConstruct);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterDataZeroLines()
+// Function: ComponentRegisterVerilogWriter::createRegisterDataZeroLines()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterDataZeroLines(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createRegisterDataZeroLines(QString const& indentation,
+    int& indentationCount) const
 {
+    QStringList zeroLines;
+
     for (auto componentRegister : *component_->getRegisters())
     {
-        QString registerData = getRegisterDataName(componentRegister) + QLatin1String(" = 0;");
-        outputStream << indentation(indentationCount) << registerData << endl;
+        QString registerData = indentation + additionalIndentation(indentation, indentationCount) +
+            getRegisterDataName(componentRegister) + QLatin1String(" = 0;");
+        zeroLines.append(registerData);
     }
 
-    outputStream << endl;
+    return zeroLines.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeRegisterConstructData()
+// Function: ComponentRegisterVerilogWriter::createRegisterConstructData()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeRegisterConstructData(QTextStream& outputStream, int& indentationCount)
-    const
+QString ComponentRegisterVerilogWriter::createRegisterConstructData(QString const& indentation,
+    int& indentationCount) const
 {
+    QStringList constructData;
+
     for (auto componentregister : *component_->getRegisters())
     {
+        QStringList registerConstructData;
         QString registerName = getRegisterDataName(componentregister);
 
         for (auto field : componentregister->fields_)
@@ -900,39 +1141,53 @@ void ComponentRegisterVerilogWriter::writeRegisterConstructData(QTextStream& out
 
             QString dataLine = registerName + QLatin1Char('[') + fieldOffset + QLatin1Char('+') + fieldWidth +
                 QLatin1String("-1:") + fieldOffset + QLatin1String("] = ") + fieldCombiName + QLatin1Char(';');
-            outputStream << indentation(indentationCount) << dataLine << endl;
+
+            registerConstructData.append(
+                indentation + additionalIndentation(indentation, indentationCount) + dataLine);
         }
 
-        if (componentregister != component_->getRegisters()->last())
-        {
-            outputStream << endl;
-        }
+        constructData.append(registerConstructData.join(ONELINE));
     }
+
+    return constructData.join(TWOLINE);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeDriveOutputsComb()
+// Function: ComponentRegisterVerilogWriter::createDriveOutputsComb()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeDriveOutputsComb(QTextStream& outputStream) const
+void ComponentRegisterVerilogWriter::createDriveOutputsComb(QString& registerTemplate) const
 {
-    int indentationCount = 1;
+    QString expressionPattern = WHITESPACEPATTERN + DRIVEOUTPUTSCOMB_TEMPLATE;
+    QString drivePattern = getPatternInTemplate(expressionPattern, registerTemplate);
+    if (drivePattern.isEmpty())
+    {
+        return;
+    }
 
-    writeCombLine(outputStream, indentationCount);
-    outputStream << indentation(indentationCount);
-    writeRegisterBeginLine(outputStream, DRIVEOUTPUTS_STRING, indentationCount);
+    QString indentation = getIndentation(drivePattern);
 
-    writeOutputControls(outputStream, indentationCount);
+    int additionalIndentationCount = 0;
 
-    writeEndLine(outputStream, indentationCount);
+    QStringList drive;
+    drive.append(createCombLine(indentation, additionalIndentationCount, DRIVEOUTPUTS_STRING));
+    drive.append(createBeginLine(indentation, additionalIndentationCount));
+    drive.append(createOutputControls(indentation, additionalIndentationCount));
+    drive.append(createEndLine(indentation, additionalIndentationCount));
 
-    outputStream << endl;
+    additionalIndentationCount--;
+
+    QString finishedDrive = drive.join(ONELINE);
+    registerTemplate.replace(drivePattern, finishedDrive);
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentRegisterVerilogWriter::writeOutputControls()
+// Function: ComponentRegisterVerilogWriter::createOutputControls()
 //-----------------------------------------------------------------------------
-void ComponentRegisterVerilogWriter::writeOutputControls(QTextStream& outputStream, int& indentationCount) const
+QString ComponentRegisterVerilogWriter::createOutputControls(QString const& indentation, int& indentationCount)
+    const
 {
+    QStringList driveOutputs;
+
     for (auto componentRegister : *component_->getRegisters())
     {
         for (auto field : componentRegister->fields_)
@@ -942,11 +1197,14 @@ void ComponentRegisterVerilogWriter::writeOutputControls(QTextStream& outputStre
                 QString portName = getPortName(componentRegister, field, OUTPUT_STRING);
                 QString fieldRegister = getFieldRegisterName(componentRegister, field);
 
-                outputStream << indentation(indentationCount) << portName << QLatin1String(" = ") << fieldRegister <<
-                    QLatin1Char(';') << endl;
+                QString drive = indentation + additionalIndentation(indentation, indentationCount) + portName +
+                    QLatin1String(" = ") + fieldRegister + QLatin1Char(';');
+                driveOutputs.append(drive);
             }
         }
     }
+
+    return driveOutputs.join(ONELINE);
 }
 
 //-----------------------------------------------------------------------------
