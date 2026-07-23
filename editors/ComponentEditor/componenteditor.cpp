@@ -631,11 +631,11 @@ void ComponentEditor::addHWItems(ComponentEditorRootItem* root,
 
     auto docRevision = component_->getRevision();
     // TODO: Enable, when type definitions are supported.
-    if (docRevision == Document::Revision::Std22)
-    {
-        root->addChildItem(QSharedPointer<TypeDefinitionsItem>(new TypeDefinitionsItem(&navigationModel_,
-            getLibHandler(), component_, root)));
-    }
+    // if (docRevision == Document::Revision::Std22)
+    // {
+    //     root->addChildItem(QSharedPointer<TypeDefinitionsItem>(new TypeDefinitionsItem(&navigationModel_,
+    //         getLibHandler(), component_, root)));
+    // }
 
     root->addChildItem(QSharedPointer<ComponentEditorFileSetsItem>(new ComponentEditorFileSetsItem(
         &navigationModel_, getLibHandler(), component_, referenceCounter_, parameterFinder_,
