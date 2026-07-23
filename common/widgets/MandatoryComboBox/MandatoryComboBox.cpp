@@ -14,6 +14,8 @@
 #include <common/KactusUtils.h>
 #include <KactusAPI/include/KactusColors.h>
 
+#include <QStringBuilder>
+
 MandatoryComboBox::MandatoryComboBox(QWidget* parent) : QComboBox(parent)
 {
     setProperty("mandatoryField", true);
