@@ -47,11 +47,12 @@ public:
     void setExistingFileSets(QStringList const& fileSetNames);
 
     /*!
-     *	Select default file set (e.g. based on view), if it exists. Otherwise select first item.
+     *	Select default file set (e.g. based on view), if it exists. Otherwise, if alternate is set then that file set is selected, otherwise select first item.
      *  
      *    @param [in] defaultName     The default file set to select.
+     *    @param [in] alternate       File set name to (force) create if default doesn't exist.
      */
-    void selectDefaultFileSet(QString const& defaultName);
+    void selectDefaultFileSet(QString const& defaultSelection, QString const& alternate = QString());
     
     /*!
      *	Set checked state of groupbox.

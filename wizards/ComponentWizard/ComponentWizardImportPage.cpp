@@ -84,6 +84,14 @@ bool ComponentWizardImportPage::isComplete() const
 	return true;
 }
 
+bool ComponentWizardImportPage::validatePage()
+{
+    // Apply stuff only when next is pressed.
+    // Add imported file to selected file set if add to fileset is selected
+    editor_->applyFileSetChoice();
+    return true;
+}
+
 //-----------------------------------------------------------------------------
 // Function: ComponentWizardImportPage::onComponentChange()
 //-----------------------------------------------------------------------------
@@ -93,6 +101,13 @@ void ComponentWizardImportPage::onComponentChange(QSharedPointer<Component> newC
     setField(InstanceData::VERILOGINSTANCES, QVariant::fromValue(verilogInstances));
 
     emit componentChanged(newComponent);
+}
+
+void ComponentWizardImportPage::showEvent(QShowEvent* event)
+{
+    // Kind of a hacky method to detect when user goes back to page, but it works
+    QWizardPage::showEvent(event);
+    editor_->clearFileSetSelections();
 }
 
 //-----------------------------------------------------------------------------

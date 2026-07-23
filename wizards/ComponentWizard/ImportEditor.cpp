@@ -28,6 +28,9 @@
 #include <IPXACTmodels/Component/FileSet.h>
 
 #include <IPXACTmodels/Component/validators/PortValidator.h>
+#include <IPXACTmodels/utilities/Search.h>
+
+#include <Plugins/PluginSystem/GeneratorPlugin/AddToFilesetWidget.h>
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -61,12 +64,19 @@ componentSelector_(new QComboBox(this)),
 sourceDisplayTabs_(new QTabWidget(this)),
 runner_(new ImportRunner(parameterFinder, sourceDisplayTabs_, this)),
 messageBox_(new QLabel(this)),
+addToFilesetWidget_(new AddToFilesetWidget(this)),
+createdFileSet_(),
 componentViews_(component->getViews())
 {
     componentSelector_->setDisabled(true);
 
     browseButton_->setIcon(KactusUtils::getIconStyledToTheme(":icons/common/graphics/opened-folder.png"));
     browseButton_->setToolTip(tr("Browse"));
+
+    // Select add to fileset by default, with file set name "rtl"
+    addToFilesetWidget_->setChecked(true);
+    addToFilesetWidget_->setExistingFileSets(component->getFileSetNames());
+    addToFilesetWidget_->selectDefaultFileSet(QStringLiteral("rtl"), QStringLiteral("rtl"));
 
     QSharedPointer<ExpressionParser> expressionParser(new IPXactSystemVerilogParser(parameterFinder));
 
@@ -141,13 +151,113 @@ bool ImportEditor::checkEditorValidity() const
     return portEditor_->isValid();
 }
 
+void ImportEditor::applyFileSetChoice()
+{    
+    // Don't create file sets if not selected
+    if (addToFilesetWidget_->isChecked() == false)
+    {
+        return;
+    }
+
+    auto currentFileSetSelection = addToFilesetWidget_->currentSelection();
+
+    // If new file set and file is to be created
+    if (!existingFileSet_ || (currentFileSetSelection.isEmpty() == false && currentFileSetSelection.compare(existingFileSet_->name()) != 0))
+    {
+        QSharedPointer<FileSet> newFileSet(new FileSet(currentFileSetSelection));
+
+        QSharedPointer<File> newFile(new File());
+        newFile->setName(selectedSourceFile_);
+
+        QSettings settings;
+        newFile->setFileTypes(settings);
+
+        newFileSet->addFile(newFile);
+
+        importComponent_->getFileSets()->append(newFileSet);
+        createdFileSet_ = newFileSet;
+    }
+
+    // Add reference to file set in created component instantiation
+    if (currentFileSetSelection.isEmpty() == false)
+    {
+        // Find out which component instantiation is new and add file set ref to it
+        auto origInstantiationNames = Search::getNames(component_->getComponentInstantiations());
+        auto newInstantiations = importComponent_->getComponentInstantiations();
+
+        for (auto const& importComponentCompInstantiation : *importComponent_->getComponentInstantiations())
+        {
+            if (origInstantiationNames.contains(importComponentCompInstantiation->name()))
+            {
+                continue;
+            }
+
+            auto fileSetRefsAsStrings = importComponentCompInstantiation->getFileSetReferenceStrings();
+
+            if (!fileSetRefsAsStrings.contains(currentFileSetSelection))
+            {
+                QSharedPointer<FileSetRef> newFileSetRef(new FileSetRef());
+                newFileSetRef->setReference(currentFileSetSelection);
+                importComponentCompInstantiation->getFileSetReferences()->append(newFileSetRef);
+            }
+
+            break; // should be max one new instantiation
+        }
+    }
+}
+
+void ImportEditor::clearFileSetSelections()
+{
+    QString fileSetRefToRemove;
+
+    // remove created file set if there is one
+    if (createdFileSet_)
+    {
+        fileSetRefToRemove = createdFileSet_->name();
+        importComponent_->getFileSets()->removeOne(createdFileSet_);
+        createdFileSet_.clear();
+    }
+    else if (existingFileSet_)
+    {
+        fileSetRefToRemove = existingFileSet_->name();
+    }
+
+    // Find out which component instantiation is new and remove file set reference from it
+    auto origInstantiationNames = Search::getNames(component_->getComponentInstantiations());
+    auto newInstantiations = importComponent_->getComponentInstantiations();
+
+    for (auto it = newInstantiations->begin(); it != newInstantiations->end(); ++it)
+    {
+        if (origInstantiationNames.contains((*it)->name()) == false)
+        {
+            // Remove file set reference from instantiation
+            auto fileSetReferences = (*it)->getFileSetReferences();
+
+            auto foundIt = std::find_if(fileSetReferences->begin(), fileSetReferences->end(),
+                [&fileSetRefToRemove](QSharedPointer<FileSetRef> ref) { return ref->getReference() == fileSetRefToRemove; });
+
+            if (foundIt != fileSetReferences->end())
+                fileSetReferences->erase(foundIt);
+            
+            // Should be just one new instantiation
+            break;
+        }
+    }
+}
+
 //-----------------------------------------------------------------------------
 // Function: ImportEditor::onFileSelected()
 //-----------------------------------------------------------------------------
 void ImportEditor::onFileSelected(QString const& filePath, QSharedPointer<FileSet> fileSet)
 {
     selectedSourceFile_ = filePath;
-	selectedFileSet_ = fileSet;
+    existingFileSet_ = fileSet;
+
+    // Preselect file set, if file is already in the file set
+    if (existingFileSet_)
+    {
+        addToFilesetWidget_->selectDefaultFileSet(existingFileSet_->name());
+    }
 
     onRefresh();
 }
@@ -285,22 +395,6 @@ void ImportEditor::onChangeSelectedComponent(int index)
 
     componentViews_ = importComponent_->getViews();
 
-    if (selectedFileSet_)
-    {
-        foreach(QSharedPointer<ComponentInstantiation> componentInstantiation,
-            *importComponent_->getComponentInstantiations())
-        {
-            auto fileSetRefsAsStrings = componentInstantiation->getFileSetReferenceStrings();
-
-            if (fileSetRefsAsStrings.contains(selectedFileSet_->name()))
-            {
-                QSharedPointer<FileSetRef> newFileSetRef(new FileSetRef());
-                newFileSetRef->setReference(selectedFileSet_->name());
-                componentInstantiation->getFileSetReferences()->append(newFileSetRef);
-            }
-        }
-    }
-
     emit componentChanged(importComponent_);
     emit contentChanged();
 }
@@ -376,6 +470,7 @@ void ImportEditor::setupLayout()
     upperLayout->addLayout(buttonLayout, 0, 4, Qt::AlignRight);
 
     sourceLayout->addLayout(upperLayout);
+    sourceLayout->addWidget(addToFilesetWidget_);
     sourceLayout->addWidget(sourceDisplayTabs_);
 
     splitter_.addWidget(sourceWidget);

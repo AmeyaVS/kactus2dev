@@ -31,6 +31,7 @@ class LibraryInterface;
 class PortsImportSummaryEditor;
 class View;
 class BusInterfaceInterface;
+class AddToFilesetWidget;
 
 //-----------------------------------------------------------------------------
 //! Used to parse source files and generating IP-XACT packages of them.
@@ -74,7 +75,14 @@ public:
 	 *
 	 *    @return False if contents of either editor is not valid.
 	 */
-	bool checkEditorValidity() const;
+    bool checkEditorValidity() const;
+
+    // If file was previously added to a file set, and user goes back to import page, previous file set is removed
+    // Creates a new file set for when add to file set is selected (and file isn't in that file set yet)
+    void applyFileSetChoice();
+
+    // When navigating to or back to this page, remove any added file set and reference in component instantiation
+    void clearFileSetSelections();
 
 signals:
 
@@ -193,8 +201,8 @@ private:
     //! Top-level source file relative path from component XML file.
     QString selectedSourceFile_;
 
-	//! The file set where the selectedSourceFile_ belongs to.
-	QSharedPointer<FileSet> selectedFileSet_;
+	//! The file set where the selectedSourceFile_ belongs to, if it already belonged to a file set.
+	QSharedPointer<FileSet> existingFileSet_;
 
 	//! Editor for the imported ports.
 	PortsImportSummaryEditor* portEditor_;
@@ -222,6 +230,12 @@ private:
 
     //! Widget for showing notifications from import plugins.
     QWidget* messageBox_;
+
+    //! Widget for adding imported item to file sets
+    AddToFilesetWidget* addToFilesetWidget_;
+
+    //! File set that was created and added to component.
+    QSharedPointer<FileSet> createdFileSet_;
 
     //! The available component views.
     QSharedPointer<QList<QSharedPointer<View> > > componentViews_;

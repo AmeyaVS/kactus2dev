@@ -76,6 +76,9 @@ public:
      */
     virtual bool isComplete() const;
 
+    // Called when next is pressed. Used to apply file set selection.
+    bool validatePage() override;
+        
 signals:
 
      //! Emitted when a new component has been imported.
@@ -108,6 +111,9 @@ private:
 	// Disable copying.
 	ComponentWizardImportPage(ComponentWizardImportPage const& rhs);
 	ComponentWizardImportPage& operator=(ComponentWizardImportPage const& rhs);
+
+    // Hacky way to do something always when the user opens this page
+    void showEvent(QShowEvent* event) override;
     
     /*!
      *  Get the list of imported instances from the selected component.

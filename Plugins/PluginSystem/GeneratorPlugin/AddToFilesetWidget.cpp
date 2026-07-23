@@ -59,14 +59,21 @@ void AddToFilesetWidget::setExistingFileSets(QStringList const& fileSetNames)
 //-----------------------------------------------------------------------------
 // Function: AddToFilesetWidget::selectDefaultFileSet()
 //-----------------------------------------------------------------------------
-void AddToFilesetWidget::selectDefaultFileSet(QString const& defaultName)
+void AddToFilesetWidget::selectDefaultFileSet(QString const& defaultSelection, QString const& alternate /*= QString()*/)
 {
-    int defaultFileSetIndex = fileSetSelection_.findText(defaultName);
+    int defaultFileSetIndex = fileSetSelection_.findText(defaultSelection);
 
     if (defaultFileSetIndex == -1)
     {
-        // If none, just pick the topmost.
-        fileSetSelection_.setCurrentIndex(0);
+        if (alternate.isEmpty())
+        {       
+            // If default selection isn't found, and there's no alternate, just pick the topmost.
+            fileSetSelection_.setCurrentIndex(0);
+        }
+        else
+        {
+            fileSetSelection_.setEditText(alternate);
+        }
     }
     else
     {
