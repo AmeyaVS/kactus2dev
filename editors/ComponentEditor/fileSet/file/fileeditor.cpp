@@ -15,6 +15,8 @@
 #include <IPXACTmodels/Component/FileSet.h>
 #include <IPXACTmodels/Component/Component.h>
 
+#include <common/KactusUtils.h>
+
 #include <KactusAPI/include/LibraryInterface.h>
 
 #include <KactusAPI/include/FileInterface.h>
@@ -38,9 +40,9 @@ buildCommand_(fileName, fileInterface, handler->getDirectoryPath(component->getV
     expressionParser, this),
 imageTypesEditor_(tr("Image types"), this),
 dependenciesEditor_(tr("Dependent directories"), handler->getDirectoryPath(component->getVlnv()), this),
-editButton_(new QPushButton(QIcon(":/icons/common/graphics/edit.png"), tr("Edit file"), this)),
-runButton_(new QPushButton(QIcon(":/icons/common/graphics/script-run-file.png"), tr("Run file"), this)),
-openFolderButton_(new QPushButton(QIcon(":/icons/common/graphics/opened-folder.png"), tr("Open file location"), this)),
+editButton_(new QPushButton(KactusUtils::getIconStyledToTheme(":/icons/common/graphics/edit.png"), tr("Edit file"), this)),
+runButton_(new QPushButton(KactusUtils::getIconStyledToTheme(":/icons/common/graphics/script-run-file.png"), tr("Run file"), this)),
+openFolderButton_(new QPushButton(KactusUtils::getIconStyledToTheme(":/icons/common/graphics/opened-folder.png"), tr("Open file location"), this)),
 fileInterface_(fileInterface),
 availableFiles_(files)
 {

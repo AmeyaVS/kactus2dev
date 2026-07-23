@@ -18,6 +18,8 @@
 #include <KactusAPI/include/FileInterface.h>
 #include <editors/ComponentEditor/parameters/ComponentParameterModel.h>
 
+#include <common/KactusUtils.h>
+
 #include <IPXACTmodels/generaldeclarations.h>
 #include <IPXACTmodels/Component/File.h>
 #include <IPXACTmodels/Component/BuildCommand.h>
@@ -39,7 +41,7 @@ fileName_(fileName),
 fileInterface_(fileInterface),
 componentPath_(componentPath),
 targetEditor_(this),
-browseTargetButton_(QIcon(":icons/common/graphics/opened-folder.png"), QString(), this),
+browseTargetButton_(KactusUtils::getIconStyledToTheme(":icons/common/graphics/opened-folder.png"), QString(), this),
 commandEditor_(this),
 flagsEditor_(this),
 replaceDefaultEditor_(new ExpressionEditor(parameterFinder, this)),
