@@ -146,7 +146,6 @@ void GeneralEditor::refresh()
     if (hasErrors)
     {
         errorModel_->addErrors(errors, QString());
-        errorView_->resizeColumnsToContents();
 
         validityIcon_->setPixmap(QPixmap(":icons/common/graphics/exclamation--frame.png").scaled(24, 24));
         validityStatus_->setText(tr("%1 error(s) found:").arg(QString::number(errors.count())));
@@ -183,6 +182,7 @@ void GeneralEditor::onAttributesChange()
 void GeneralEditor::showEvent( QShowEvent* event )
 {
 	QWidget::showEvent(event);
+    errorView_->resizeColumnsToContents();
 
     if (component()->getRevision() == Document::Revision::Std22)
     {
