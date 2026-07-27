@@ -45,7 +45,7 @@ expressionParser_(expressionParser),
 parameterValidator_(new ParameterValidator(expressionParser, component->getChoices(),
     component->getRevision())),
 validator_(new InstantiationsValidator(expressionParser, component->getFileSets(), parameterValidator_, libHandler)),
-allInstantiationsValidator_(new AllInstantiationsValidator(validator_)),
+allInstantiationsValidator_(new AllInstantiationsValidator(validator_, libHandler)),
 componentInstantiationsItem_(0),
 designConfigurationInstantiationsItem_(
     new DesignConfigurationInstantiationsItem(model, libHandler, component, allInstantiationsValidator_, validator_, parameterValidator_, referenceCounter,
@@ -154,6 +154,11 @@ ItemEditor* InstantiationsItem::editor()
 void InstantiationsItem::createChild(int)
 {
     // No new children allowed.
+}
+
+bool InstantiationsItem::isValid() const
+{
+    return allInstantiationsValidator_->validate(component_);
 }
 
 //-----------------------------------------------------------------------------

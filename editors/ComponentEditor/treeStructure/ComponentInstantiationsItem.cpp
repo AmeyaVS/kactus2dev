@@ -122,20 +122,6 @@ void ComponentInstantiationsItem::createChild( int index )
 }
 
 //-----------------------------------------------------------------------------
-// Function: ComponentInstantiationsItem::isValid()
-//-----------------------------------------------------------------------------
-bool ComponentInstantiationsItem::isValid() const
-{
-    // Validation for all instantiations only done once here (no need to do the same in design and design config instantiation)
-    auto instantiationsAsNameGroups = CollectionValidators::itemListToNameGroupList(component_->getComponentInstantiations());
-    instantiationsAsNameGroups->append(*CollectionValidators::itemListToNameGroupList(component_->getDesignInstantiations()));
-    instantiationsAsNameGroups->append(*CollectionValidators::itemListToNameGroupList(component_->getDesignConfigurationInstantiations()));
-    allInstantiationsValidator_->childrenHaveUniqueNames(instantiationsAsNameGroups);
-
-    return ComponentEditorItem::isValid();
-}
-
-//-----------------------------------------------------------------------------
 // Function: ComponentInstantiationsItem::createSingleComponentInstantiationItem()
 //-----------------------------------------------------------------------------
 QSharedPointer<SingleComponentInstantiationItem> ComponentInstantiationsItem::createChildItem(

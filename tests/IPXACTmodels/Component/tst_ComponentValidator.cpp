@@ -786,7 +786,7 @@ void tst_ComponentValidator::testHasValidInstantiations()
 
             if (copyInstantiation)
             {
-                expectedError = QObject::tr("Component instantiation name %1 within component %2 is not unique.")
+                expectedError = QObject::tr("Component instantiation name %1 among instantiations of component %2 is not unique.")
                     .arg(instantiationName).arg(testComponent->getVlnv().toString());
             }
         }
@@ -824,7 +824,7 @@ void tst_ComponentValidator::testHasValidInstantiations()
 
             if (copyInstantiation)
             {
-                expectedError = QObject::tr("Design instantiation name %1 within component %2 is not unique.")
+                expectedError = QObject::tr("Design instantiation name %1 among instantiations of component %2 is not unique.")
                     .arg(instantiationName).arg(testComponent->getVlnv().toString());
             }
             else if (!hasReference)
@@ -867,7 +867,7 @@ void tst_ComponentValidator::testHasValidInstantiations()
 
             if (copyInstantiation)
             {
-                expectedError = QObject::tr("Design configuration instantiation name %1 within component %2 is not unique.")
+                expectedError = QObject::tr("Design configuration instantiation name %1 among instantiations of component %2 is not unique.")
                     .arg(instantiationName).arg(testComponent->getVlnv().toString());
             }
             else if (!hasReference)

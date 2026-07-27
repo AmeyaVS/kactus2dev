@@ -375,6 +375,9 @@ private:
     void findErrorsInViews(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context)
         const;
 
+    void findErrorsInInstantiations(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context)
+        const;
+    
     /*!
      *  Find errors in component instantiations.
      *

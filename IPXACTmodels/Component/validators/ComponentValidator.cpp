@@ -173,7 +173,7 @@ modeConditionParserInterface_(modeConditionParserInterface)
 
     addressSpacesValidator_ = QSharedPointer<AddressSpacesValidator>(new AddressSpacesValidator(addressSpaceValidator_));
 
-    allInstantiationsValidator_ = QSharedPointer<AllInstantiationsValidator>(new AllInstantiationsValidator(instantiationsValidator_));
+    allInstantiationsValidator_ = QSharedPointer<AllInstantiationsValidator>(new AllInstantiationsValidator(instantiationsValidator_, library));
 
     viewsValidator_ = QSharedPointer<ViewsValidator>(new ViewsValidator(viewValidator_));
 
@@ -580,9 +580,10 @@ void ComponentValidator::findErrorsIn(QVector<QString>& errors, QSharedPointer<C
     findErrorsInAddressSpaces(errors, component, context);
     findErrorsInMemoryMaps(errors, component, context);
     findErrorsInViews(errors, component, context);
-    findErrorsInComponentInstantiations(errors, component, context);
-    findErrorsInDesignInstantiations(errors, component, context);
-    findErrorsInDesignConfigurationInstantiations(errors, component, context);
+    findErrorsInInstantiations(errors, component, context);
+    // findErrorsInComponentInstantiations(errors, component, context);
+    // findErrorsInDesignInstantiations(errors, component, context);
+    // findErrorsInDesignConfigurationInstantiations(errors, component, context);
     findErrorsInPorts(errors, component, context);
     findErrorsInComponentGenerators(errors, component, context);
     findErrorsInChoices(errors, component, context);
@@ -813,6 +814,11 @@ void ComponentValidator::findErrorsInViews(QVector<QString>& errors, QSharedPoin
             viewValidator_->findErrorsIn(errors, view, context);
         }
     }
+}
+
+void ComponentValidator::findErrorsInInstantiations(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context) const
+{
+    allInstantiationsValidator_->findErrorsIn(errors, component, context);
 }
 
 //-----------------------------------------------------------------------------

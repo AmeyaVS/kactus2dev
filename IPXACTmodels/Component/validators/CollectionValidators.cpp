@@ -11,6 +11,12 @@
 
 #include "CollectionValidators.h"
 
+#include <KactusAPI/include/LibraryInterface.h>
+
+#include <IPXACTmodels/utilities/Search.h>
+
+#include <IPXACTmodels/DesignConfiguration/DesignConfiguration.h>
+
 #include <IPXACTmodels/Component/MemoryMap.h>
 #include <IPXACTmodels/Component/validators/MemoryMapValidator.h>
 
@@ -140,9 +146,10 @@ bool AddressSpacesValidator::validate(AddressSpaceList addressSpaces)
 //-----------------------------------------------------------------------------
 // Function: AllInstantiationsValidator::AllInstantiationsValidator()
 //-----------------------------------------------------------------------------
-AllInstantiationsValidator::AllInstantiationsValidator(QSharedPointer<InstantiationsValidator> singleInstantiationValidator):
+AllInstantiationsValidator::AllInstantiationsValidator(QSharedPointer<InstantiationsValidator> singleInstantiationValidator, LibraryInterface* library):
     HierarchicalValidator(),
-    singleInstantiationValidator_(singleInstantiationValidator)
+    singleInstantiationValidator_(singleInstantiationValidator),
+    library_(library)
 {
     setChildValidator(singleInstantiationValidator);
 }
@@ -152,21 +159,79 @@ AllInstantiationsValidator::AllInstantiationsValidator(QSharedPointer<Instantiat
 //-----------------------------------------------------------------------------
 bool AllInstantiationsValidator::validate(QSharedPointer<Component> component)
 {
+    singleInstantiationValidator_->clearChildItemValidities();
     auto instantiationsAsNameGroups = CollectionValidators::itemListToNameGroupList(component->getComponentInstantiations());
     instantiationsAsNameGroups->append(*CollectionValidators::itemListToNameGroupList(component->getDesignInstantiations()));
     instantiationsAsNameGroups->append(*CollectionValidators::itemListToNameGroupList(component->getDesignConfigurationInstantiations()));
+
+    // Check for name uniqueness among all instantiations
     if (!childrenHaveUniqueNames(instantiationsAsNameGroups))
     {
         return false;
     }
-    
-    if (!hasValidComponentInstantiations(component) || !hasValidDesignConfigurationInstantiations(component) ||
-        !hasValidDesignInstantiations(component))
+
+    return hasValidDesignRefs(component) && hasValidComponentInstantiations(component) && hasValidDesignConfigurationInstantiations(component) &&
+        hasValidDesignInstantiations(component);
+}
+
+void AllInstantiationsValidator::findErrorsIn(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context) const
+{
+    // Find duplicate names among instantiations and errors in each instantiation of the given component
+
+    QSharedPointer<QList<QSharedPointer<NameGroup> > > instantiationsAsNameGroups(new QList<QSharedPointer<NameGroup> >());
+
+    auto componentInstantiations = CollectionValidators::itemListToNameGroupList(component->getComponentInstantiations());
+    int nComponentInstantiations = componentInstantiations->size();
+    instantiationsAsNameGroups->append(*componentInstantiations);
+
+    auto designInstantiations = CollectionValidators::itemListToNameGroupList(component->getDesignInstantiations());
+    int nDesignInstantiations = designInstantiations->size();
+    instantiationsAsNameGroups->append(*designInstantiations);
+
+    auto designConfigInstantiations = CollectionValidators::itemListToNameGroupList(component->getDesignConfigurationInstantiations());
+    instantiationsAsNameGroups->append(*designConfigInstantiations);
+
+    QSet<QString> occupiedNames;
+    int i = 0;
+    for (auto const& instantiation : *instantiationsAsNameGroups)
     {
-        return false;
+        bool isComponent = i < nComponentInstantiations;
+        bool isDesign = nComponentInstantiations <= i && i < nComponentInstantiations + nDesignInstantiations;
+        bool isDesignConf = nComponentInstantiations + nDesignInstantiations <= i;
+        i++;
+
+        QString prefix;
+        if (isComponent)
+        {
+            auto casted = instantiation.dynamicCast<ComponentInstantiation>();
+            prefix = QStringLiteral("Component");
+            singleInstantiationValidator_->findErrorsInComponentInstantiation(errors, casted, context, component->getRevision());
+        }
+        else if (isDesign)
+        {
+            auto casted = instantiation.dynamicCast<DesignInstantiation>();
+            prefix = QStringLiteral("Design");
+            singleInstantiationValidator_->findErrorsInDesignInstantiation(errors, casted, context);
+        }
+        else if (isDesignConf)
+        {
+            auto casted = instantiation.dynamicCast<DesignConfigurationInstantiation>();
+            prefix = QStringLiteral("Design configuration");
+            singleInstantiationValidator_->findErrorsInDesignConfigurationInstantiation(errors, casted, context);
+        }
+
+        if (occupiedNames.contains(instantiation->name()))
+        {
+            errors.append(QObject::tr("%1 instantiation name %2 among instantiations of %3 is not unique.")
+                .arg(prefix).arg(instantiation->name()).arg(context));
+        }
+        else
+        {
+            occupiedNames.insert(instantiation->name());
+        }
     }
 
-    return true;
+    findErrorsInDesignRefs(errors, component, context);
 }
 
 //-----------------------------------------------------------------------------
@@ -215,6 +280,103 @@ bool AllInstantiationsValidator::hasValidDesignInstantiations(QSharedPointer<Com
     }
 
     return true;
+}
+
+bool AllInstantiationsValidator::hasValidDesignRefs(QSharedPointer<Component> component)
+{
+    // Check for each view, in case a design configuration instantiation with a design reference and a design instantiation are referenced by the view, that
+    // the design reference in the design configuration matches the design reference of the design instantiation.
+
+    for (auto const& view : *component->getViews())
+    {
+        QString designConfDesignRef;
+        QString designInstDesingRef;
+
+        QSharedPointer<DesignConfigurationInstantiation> foundDesignConfInst;
+        QSharedPointer<DesignInstantiation> foundDesignInst;
+
+        if (view->getDesignConfigurationInstantiationRef().isEmpty() == false)
+        {
+            auto designConfInst = Search::findByName(view->getDesignConfigurationInstantiationRef(), component->getDesignConfigurationInstantiations());
+            if (designConfInst != nullptr)
+            {
+                Q_ASSERT_X(library_, "AllInstantionsValidator::hasValidDesignRefs", "Library is null");
+                auto doc = library_->getModelReadOnly(VLNV(VLNV::DESIGNCONFIGURATION, designConfInst->getDesignConfigurationReference()->toString()));
+                auto designConf = doc.dynamicCast<DesignConfiguration const>();
+                foundDesignConfInst = designConfInst;
+                designConfDesignRef = designConf->getDesignRef().toString();
+            }
+        }
+
+        if (view->getDesignInstantiationRef().isEmpty() == false)
+        {
+            auto designInstIt = std::find_if(component->getDesignInstantiations()->cbegin(), component->getDesignInstantiations()->cend(),
+                [&view](QSharedPointer<DesignInstantiation> designInstantiation)
+                {
+                    return view->getDesignInstantiationRef().compare(designInstantiation->name()) == 0;
+                });
+
+            if (designInstIt != component->getDesignInstantiations()->cend())
+            {
+                designInstDesingRef = (*designInstIt)->getDesignReference()->toString();
+                foundDesignInst = *designInstIt;
+            }
+
+            // In a view, if design config has design reference, then design reference in design instantiation must match
+            if (designConfDesignRef.isEmpty() == false && designConfDesignRef.compare(designInstDesingRef) != 0)
+            {
+                if (foundDesignConfInst)
+                    childValidator_->setChildItemValidity(foundDesignConfInst, false);
+                if (foundDesignInst)
+                    childValidator_->setChildItemValidity(foundDesignInst, false);
+                
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void AllInstantiationsValidator::findErrorsInDesignRefs(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context) const
+{
+    for (auto const& view : *component->getViews())
+    {
+        QString designConfDesignRef;
+        QString designInstDesingRef;
+
+        if (view->getDesignConfigurationInstantiationRef().isEmpty() == false)
+        {
+            auto designConfInst = Search::findByName(view->getDesignConfigurationInstantiationRef(), component->getDesignConfigurationInstantiations());
+            if (designConfInst != nullptr)
+            {   
+                auto doc = library_->getModelReadOnly(VLNV(VLNV::DESIGNCONFIGURATION, designConfInst->getDesignConfigurationReference()->toString()));
+                auto designConf = doc.dynamicCast<DesignConfiguration const>();
+                designConfDesignRef = designConf->getDesignRef().toString();
+            }
+        }
+
+        if (view->getDesignInstantiationRef().isEmpty() == false)
+        {
+            auto designInstIt = std::find_if(component->getDesignInstantiations()->cbegin(), component->getDesignInstantiations()->cend(),
+                [&view](QSharedPointer<DesignInstantiation> designInstantiation)
+                {
+                    return view->getDesignInstantiationRef().compare(designInstantiation->name()) == 0;
+                });
+
+            if (designInstIt != component->getDesignInstantiations()->cend())
+            {
+                designInstDesingRef = (*designInstIt)->getDesignReference()->toString();
+            }    
+    
+            // In a view, if design config has design reference, then design reference in design instantiation must match
+            if (designConfDesignRef.isEmpty() == false && designConfDesignRef.compare(designInstDesingRef) != 0)
+            {
+                errors.append(QObject::tr("View %1: Design reference must match for design configuration referenced by design configuration instantiation and design instantiation in %2")
+                    .arg(view->name()).arg(context));
+            }
+        }            
+    }
 }
 
 //-----------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #include <IPXACTmodels/Component/Component.h>
 #include <IPXACTmodels/common/validators/ParameterValidator.h>
 #include <IPXACTmodels/Component/validators/CollectionValidators.h>
+#include <IPXACTmodels/Component/validators/InstantiationsValidator.h>
 
 //-----------------------------------------------------------------------------
 // Function: DesignInstantiationsItem::DesignInstantiationsItem()

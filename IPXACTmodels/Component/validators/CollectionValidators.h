@@ -118,6 +118,7 @@ private:
 
 class InstantiationsValidator;
 class Component;
+class LibraryInterface;
 /*
  *  Validator for all instantiations.
  */
@@ -125,23 +126,31 @@ class IPXACTMODELS_EXPORT AllInstantiationsValidator: public HierarchicalValidat
 {
 public:
 
-    explicit AllInstantiationsValidator(QSharedPointer<InstantiationsValidator> singleInstantiationValidator);
+    AllInstantiationsValidator(QSharedPointer<InstantiationsValidator> singleInstantiationValidator, LibraryInterface* library);
     virtual ~AllInstantiationsValidator() = default;
 
     AllInstantiationsValidator(AllInstantiationsValidator& other) = delete;
     AllInstantiationsValidator& operator=(AllInstantiationsValidator& other) = delete;
 
     bool validate(QSharedPointer<Component> component);
-
+    
+    void findErrorsIn(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context) const;
+    
     bool hasValidComponentInstantiations(QSharedPointer<Component> component) const;
-
+    
     bool hasValidDesignConfigurationInstantiations(QSharedPointer<Component> component) const;
-
+    
     bool hasValidDesignInstantiations(QSharedPointer<Component> component) const;
 
 private:
 
+    bool hasValidDesignRefs(QSharedPointer<Component> component);
+
+    void findErrorsInDesignRefs(QVector<QString>& errors, QSharedPointer<Component> component, QString const& context) const;
+
     QSharedPointer<InstantiationsValidator> singleInstantiationValidator_;
+
+    LibraryInterface* library_;
 };
 
 class View;
