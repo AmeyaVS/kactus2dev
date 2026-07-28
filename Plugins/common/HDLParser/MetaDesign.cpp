@@ -705,7 +705,7 @@ void MetaDesign::parseAdHocAssignmentForPort(QSharedPointer<MetaPort> mPort,
     }
 
     // Determine the part of the wire that shall be assigned to the port:
-    // This is [abs(physical.left – physical.right):0]
+    // This is [abs(physical.left ï¿½ physical.right):0]
     QPair<QString, QString> newBounds;
     newBounds.first = QString::number(assignment->physicalBounds_.first.toInt() -
         assignment->physicalBounds_.second.toInt());

@@ -52,19 +52,41 @@ QList<QSharedPointer<GenerationOutput> > ModelSimWriterFactory::prepareDesign(QL
 
     QList<QSharedPointer<MetaInstance> > components;
 
-    for (QSharedPointer<MetaDesign> mDesign : designs)
-    {
-        components.append(mDesign->getTopInstance());
-        components.append(mDesign->getInstances()->values());
-    }
+    // Instead of including every file in the hierarchy, include only files from the file sets of the top level design component,
+    // and any leaf components. Any components in between in the hierarchy shouldn't ideally have any manually created 
+    // rtl files, only kactus2-generated structural rtl which should be generated from the topmost component.
 
+    QList<QSharedPointer<GenerationOutput> > retval;
+    if (designs.isEmpty()) return retval;
+    
     QSharedPointer<ModelSimWriter> writer(new ModelSimWriter);
-
     document->writer_ = writer;
     document->fileName_ = designs.first()->getTopInstance()->getModuleName() + ".do";
     document->vlnv_ = designs.first()->getTopInstance()->getComponent()->getVlnv().toString();
     document->metaDesign_ = designs.first();
 
+    for (auto const& design : designs)
+    {
+        // Always add files of topmost design component
+        if (design == designs.first())
+        {
+            components.append(design->getTopInstance());
+        }
+
+        // Add design instances if they contain no design themselves
+        for (auto const& instance : *design->getInstances())
+        {
+            // Figure out through the active view if the component instance is hierarchical
+            auto view = instance->getActiveView();
+
+            if (view != nullptr && instance->getComponent()->getHierRef(view->name()).isValid() == false)
+            {
+                components.append(instance);
+            }
+        }
+    }
+
+    // Finally add the files of the selected components to be included
     for (QSharedPointer<MetaComponent> mComponent : components)
     {
         QString basePath = library_->getPath(mComponent->getComponent()->getVlnv());
@@ -81,9 +103,7 @@ QList<QSharedPointer<GenerationOutput> > ModelSimWriterFactory::prepareDesign(QL
         }
     }
 
-    QList<QSharedPointer<GenerationOutput> > retval;
     retval.append(document);
-
     return retval;
 }
 
