@@ -20,6 +20,8 @@
 //-----------------------------------------------------------------------------
 class GraphicsItemLabel : public QGraphicsProxyWidget
 {
+    Q_OBJECT
+
 public:
 
     /*!
@@ -54,6 +56,11 @@ public:
      */
     void updateLabelGeometry();
 
+signals:
+
+    // Signals to parent that its label has been clicked
+    void labelClicked();
+
 protected:
 
     /*!
@@ -68,6 +75,8 @@ protected:
                         parent with non-empty tooltip.
      */
     void hoverMoveEvent(QGraphicsSceneHoverEvent* event) override;
+
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
 
 private:
 

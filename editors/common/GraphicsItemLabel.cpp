@@ -11,6 +11,8 @@
 
 #include "GraphicsItemLabel.h"
 #include <QToolTip>
+#include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 
 //-----------------------------------------------------------------------------
 // Function: GraphicsItemLabel::GraphicsItemLabel()
@@ -71,4 +73,16 @@ void GraphicsItemLabel::hoverMoveEvent(QGraphicsSceneHoverEvent* /*event*/)
             break;
         }
     }
+}
+
+void GraphicsItemLabel::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    // Deselect other stuff, if not intentionally selecting multiple items
+    if (scene() && ((event->modifiers() & Qt::ControlModifier) == 0))
+    {
+        scene()->clearSelection();
+    }
+
+    // Tell parent to select itself
+    emit labelClicked();
 }

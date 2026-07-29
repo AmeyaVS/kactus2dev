@@ -124,6 +124,10 @@ protected:
      */
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
 
+private slots:
+
+    //! Select item when its label is clicked
+    void onLabelClicked();
 
 private:
 

@@ -40,6 +40,7 @@ HWConnectionEndpoint::HWConnectionEndpoint(QString const& name, QSharedPointer<C
     nameLabel_->setFont(font);
     nameLabel_->setFlag(ItemStacksBehindParent);
     nameLabel_->setText(name);
+    connect(nameLabel_, SIGNAL(labelClicked()), this, SLOT(onLabelClicked()), Qt::UniqueConnection);
 
     setFlag(ItemIsMovable);
     setFlag(ItemIsSelectable);
@@ -165,4 +166,10 @@ void HWConnectionEndpoint::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 
         moveItemByMouse();
     }
+}
+
+void HWConnectionEndpoint::onLabelClicked()
+{
+    // Select if not selected, unselect if selected
+    setSelected(isSelected() == false);
 }
