@@ -3741,8 +3741,7 @@ void MainWindow::applyThemeToMainWindow()
     auto tableGridlineColorRGB = KactusUtils::colorToRgbString(KactusColors::TABLE_GRIDLINE);
     auto mandatoryFieldColorRGB = KactusUtils::colorToRgbString(KactusColors::MANDATORY_FIELD);
 
-    // Dark mode is not enabled for windows vista style
-    if (KactusUtils::darkThemeEnabled() && appStyle.compare("windowsvista") != 0)
+    if (KactusUtils::darkThemeEnabled())
     {
         auto textEditBorderColorRGB = tableGridlineColorRGB;
         appStyleSheet =

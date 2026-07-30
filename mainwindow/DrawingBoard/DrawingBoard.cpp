@@ -12,6 +12,7 @@
 #include "DrawingBoard.h"
 
 #include <common/widgets/tabDocument/TabDocument.h>
+#include <mainwindow/DrawingBoard/KactusTabBarStyle.h>
 
 #include <IPXACTmodels/common/VLNV.h>
 
@@ -20,14 +21,32 @@
 #include <QObject>
 #include <QMessageBox>
 #include <QMenu>
-#include <QTabBar>
+#include <QProxyStyle>
 #include <QSettings>
+#include <QStyle>
+#include <QTabBar>
+
+namespace
+{
+    // Custom tab bar using KactusProxyStyle to place scroll buttons
+    class KactusTabBar : public QTabBar
+    {
+    public:
+        explicit KactusTabBar(QWidget* parent = nullptr) : QTabBar(parent)
+        {
+            setUsesScrollButtons(true);
+            setStyle(new KactusTabBarStyle(style()));
+        }
+    };
+}
 
 //-----------------------------------------------------------------------------
 // Function: DrawingBoard::DrawingBoard()
 //-----------------------------------------------------------------------------
 DrawingBoard::DrawingBoard(QWidget* parent) : QTabWidget(parent)
 {
+    setTabBar(new KactusTabBar(this));
+
     connect(this, SIGNAL(tabCloseRequested(int)), this, SLOT(closeAndRemoveDocument(int)), Qt::UniqueConnection);
 
     tabBar()->installEventFilter(this);

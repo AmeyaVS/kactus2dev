@@ -3460,6 +3460,9 @@
     <ClCompile Include="common\widgets\MandatoryComboBox\MandatoryComboBox.cpp">
       <Filter>Source Files\common\widgets\MandatoryComboBox</Filter>
     </ClCompile>
+    <ClCompile Include="mainwindow\DrawingBoard\KactusTabBarStyle.cpp">
+      <Filter>Source Files\mainwindow\DrawingBoard</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="common\layouts\HCollisionLayout.inl">
@@ -5910,6 +5913,9 @@
     </ClInclude>
     <ClInclude Include="common\KactusProxyStyle.h">
       <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="mainwindow\DrawingBoard\KactusTabBarStyle.h">
+      <Filter>Header Files\mainwindow\DrawingBoard</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

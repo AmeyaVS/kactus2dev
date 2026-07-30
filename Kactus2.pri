@@ -149,6 +149,7 @@ HEADERS += ./common/widgets/instanceWidgets/InstanceWidgets.h \
     ./mainwindow/NewPages/NewSWDesignPage.h \
     ./mainwindow/NewPages/NewSystemPage.h \
     ./mainwindow/DrawingBoard/DrawingBoard.h \
+    ./mainwindow/DrawingBoard/KactusTabBarStyle.h \
     ./mainwindow/SaveHierarchy/DocumentTreeBuilder.h \
     ./mainwindow/SaveHierarchy/HierarchicalSaveColumns.h \
     ./mainwindow/SaveHierarchy/SaveAsItem.h \
@@ -1041,6 +1042,7 @@ SOURCES += ./editors/ComponentEditor/busInterfaces/general/MasterModeEditor.cpp 
     ./mainwindow/Ribbon/Ribbon.cpp \
     ./mainwindow/Ribbon/RibbonGroup.cpp \
     ./mainwindow/DrawingBoard/DrawingBoard.cpp \
+    ./mainwindow/DrawingBoard/KactusTabBarStyle.cpp \
     ./mainwindow/SaveHierarchy/DocumentTreeBuilder.cpp \
     ./mainwindow/SaveHierarchy/HierarchicalSaveBuildStrategy.cpp \
     ./mainwindow/SaveHierarchy/SaveAsItem.cpp \

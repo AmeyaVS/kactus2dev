@@ -978,6 +978,7 @@ CreateHelp
     <ClCompile Include="mainwindow\DeleteWorkspaceDialog.cpp" />
     <ClCompile Include="mainwindow\DockWidgetHandler.cpp" />
     <ClCompile Include="mainwindow\DrawingBoard\DrawingBoard.cpp" />
+    <ClCompile Include="mainwindow\DrawingBoard\KactusTabBarStyle.cpp" />
     <ClCompile Include="mainwindow\main.cpp" />
     <ClCompile Include="mainwindow\mainwindow.cpp" />
     <ClCompile Include="mainwindow\MessageConsole\messageconsole.cpp" />
@@ -2263,6 +2264,7 @@ CreateHelp
     <QtMoc Include="library\VLNVDialer\ValidityGroup.h" />
     <QtMoc Include="library\VLNVDialer\RevisionGroup.h" />
     <ClInclude Include="mainwindow\CommandLineParser.h" />
+    <ClInclude Include="mainwindow\DrawingBoard\KactusTabBarStyle.h" />
     <ClInclude Include="mainwindow\SaveHierarchy\DocumentTreeBuilder.h" />
     <QtMoc Include="mainwindow\SaveHierarchy\HierarchicalSaveBuildStrategy.h">
     </QtMoc>
