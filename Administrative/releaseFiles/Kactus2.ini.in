@@ -1,9 +1,9 @@
 [Platform]
-PluginsPath=/usr/share/kactus2/plugins
-HelpPath=/usr/share/kactus2/help
+PluginsPath=@KACTUS_PLUGINS@
+HelpPath=@KACTUS_HELP@
 
 [Library]
-Locations=/usr/share/kactus2/library
+Locations=@KACTUS_LIBRARY@
 
 [FilterWidget]
 Hidden=false
