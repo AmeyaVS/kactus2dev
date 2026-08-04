@@ -42,6 +42,8 @@ static QPixmap getRecoloredPixmap(const QPixmap& src, const QColor& color)
 
 QPixmap KactusUtils::getPixmapStyledToTheme(const QString& srcPath, QColor* colorOverride /*= nullptr*/)
 {
+    // TODO Consider adding QPixmapCache to cache frequently used pixmaps
+
     if (darkThemeEnabled())
     {
         QPixmap base(srcPath);

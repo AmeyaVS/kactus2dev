@@ -24,6 +24,7 @@
 #include <IPXACTmodels/Component/Component.h>
 
 #include <KactusAPI/include/LibraryInterface.h>
+#include <common/KactusUtils.h>
 
 #include <common/widgets/LibrarySelectorWidget/LibrarySelectorWidget.h>
 #include <common/widgets/LineEditEx/LineEditEx.h>
@@ -67,7 +68,7 @@ QDialog(parent),
         vlnvEditor_->setTitle("VLNV for new HW design and design configuration");
         designExt_ = ".design";
         designConfExt_ = ".designcfg";
-        designIcon_->setPixmap(QPixmap(":/icons/common/graphics/hw-design.png"));
+        designIcon_->setPixmap(KactusUtils::getPixmapStyledToTheme(":/icons/common/graphics/hw-design.png"));
     }
     else if (designType == KactusAttribute::SW)
     {
@@ -78,7 +79,7 @@ QDialog(parent),
         vlnvEditor_->setTitle("VLNV for new SW design and design configuration");
         designExt_ = ".swdesign";
         designConfExt_ = ".swdesigncfg";
-        designIcon_->setPixmap(QPixmap(":/icons/common/graphics/sw-design48x48.png"));
+        designIcon_->setPixmap(KactusUtils::getPixmapStyledToTheme(":/icons/common/graphics/sw-design48x48.png"));
     }
     else if (designType == KactusAttribute::SYSTEM)
     {
@@ -89,7 +90,7 @@ QDialog(parent),
         vlnvEditor_->setTitle("VLNV for new system design and design configuration");
         designExt_ = ".sysdesign";
         designConfExt_ = ".sysdesigncfg";
-        designIcon_->setPixmap(QPixmap(":/icons/common/graphics/sw-design48x48.png"));
+        designIcon_->setPixmap(KactusUtils::getPixmapStyledToTheme(":/icons/common/graphics/sw-design48x48.png"));
     }
     else
     {
@@ -306,11 +307,6 @@ void NewDesignDialog::setupLayout()
     QHBoxLayout* introLayout = new QHBoxLayout(introWidget);
     introLayout->addWidget(introLabel_, 9);
     introLayout->addWidget(designIcon_, 1);    
-    
-    QPalette introPalette = introWidget->palette();
-    introPalette.setColor(QPalette::Window, Qt::white);
-    introWidget->setPalette(introPalette);
-    introWidget->setAutoFillBackground(true);
     
     QGroupBox* viewSettingsBox = new QGroupBox(tr("View settings"), this);    
     QFormLayout* viewLayout = new QFormLayout(viewSettingsBox);
