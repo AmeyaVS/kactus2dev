@@ -82,7 +82,7 @@ This software is licensed under the [GPL2 General Public License](LICENSE).
 Kactus2 is also available for dual licensing. Please contact kactus2@tuni.fi
 to purchase a commercial license.
 
-Kactus2 is dynamically linked using Qt 6.2.4 open source libraries (LGPL),
+Kactus2 is dynamically linked using Qt 6.6.2 open source libraries (LGPL),
 copyright The Qt Company.
 
 Kactus2 uses the Python language and interpreter for automating design tasks.  

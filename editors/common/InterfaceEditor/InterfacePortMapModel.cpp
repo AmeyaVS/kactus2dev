@@ -120,7 +120,7 @@ void InterfacePortMapModel::setInterfaceData(ConnectionEndpoint* busItem,
                 newItem.logicalIsOk_ = absDef && absDef->hasPort(logicalPortName, busInterface->getInterfaceMode());
 
                 int logicalSize = 1;
-                if (portMap->getLogicalPort()->range_ || absDef->hasPort(logicalPortName, busInterface->getInterfaceMode()))
+                if (portMap->getLogicalPort()->range_ || (absDef != nullptr && absDef->hasPort(logicalPortName, busInterface->getInterfaceMode())))
                 {
                     auto logicalBounds = getLogicalBounds(busInterface, logicalPortName, portMap, absDef);
 
