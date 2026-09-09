@@ -8,6 +8,17 @@
               * Changed or Information
 ===============================================================================
 
+09/09/2026 3.14.2
+----------------------------------------------------
++ Improvements to Verilog importer, improved SystemVerilog parsing
+  * Improved parameter and port parsing
++ Importers can now add imported file to file sets
++ Modelsim generator now includes only files from top level component file sets 
+  and non-hierarchical instances in order to prevent adding duplicate files
++ Improved Linux build flow
+  * Install target paths set correctly according to install dir
+- Fixed lots of crashes
+
 28/05/2026 3.14.1
 ----------------------------------------------------
 + Updated target Qt version to 6.6.2 or newer
