@@ -281,3 +281,18 @@ some_rx
 ```
 
 Notice how the previously added extra ports `otherPort1` and `otherPort2` don't show up, because they weren't mapped to any logical signals.
+
+### Practical example: Generating top-level RTL from design
+
+The generator plugins of Kactus2 can be used in Python scripts. This example demonstrates how the Verilog generator can be used to generate the top-level RTL code of a design.  
+
+The following script can be used to generate the top-level Verilog code of a component `company:example:awesomedesign:1.0` with the view `hierarchical`:
+
+```py
+from pythonAPI import PythonAPI
+
+kactus2py = PythonAPI()
+kactus2py.generate("verilog", "company:example:awesomedesign:1.0", "hierarchical", "/home/user/output")
+```
+
+The script will generate the RTL and outputs it to a directory in the user's home directory. A component with matching vlnv must exist in one of the active libraries, and it must contain a design referenced by the selected view.

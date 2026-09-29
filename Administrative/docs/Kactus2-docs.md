@@ -15,7 +15,9 @@ The PythonAPI currently contains the following functionality:
 
 ### PythonAPI usage
 
-PythonAPI is not a standalone module and must be used in tandem with Kactus2 either inside the Kactus2 GUI in the "Script editor" window or on the command line Python interpreter by starting Kactus2 with the -c (--no-gui) option. Running ready-made scripts on the CLI can be done with `exec(open(<file path>).read())`.
+PythonAPI is not a standalone module and must be used in tandem with Kactus2 either inside the Kactus2 GUI in the "Script editor" window or on the command line Python interpreter by starting Kactus2 with the -c (--no-gui) option. Running ready-made scripts on the CLI can be done with `kactus2 -i <script path>`.
+
+For troubleshooting issues with PythonAPI, see the relevant section in the [wiki](https://github.com/kactus2/kactus2dev/wiki/Building-Kactus2-from-source#3-troubleshooting-linux).
 
 ### Usable KactusAPI interfaces
 
